@@ -25,9 +25,6 @@ export class MessageQueueService
 
   async onModuleInit() {
     await this.$connect();
-    await Promise.all(
-      Object.values(QueueTable).map((table) => pgmq.createQueue(this, table)),
-    );
   }
 
   async onModuleDestroy() {
