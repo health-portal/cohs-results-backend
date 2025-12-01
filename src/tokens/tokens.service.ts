@@ -17,6 +17,7 @@ export class TokensService {
     });
     const url = new URL(env.FRONTEND_BASE_URL + '/auth/activate');
     url.searchParams.set('token', token);
+    console.log(`Activation URL: ${url}`);
     return url.toString();
   }
 
@@ -26,6 +27,7 @@ export class TokensService {
     });
     const url = new URL(env.FRONTEND_BASE_URL + '/auth/reset-password');
     url.searchParams.set('token', token);
+    console.log(`Reset Password URL: ${url}`);
     return url.toString();
   }
 
