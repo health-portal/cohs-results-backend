@@ -16,7 +16,7 @@ import {
   FacultyRes,
 } from './college.schema';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import {
   ApiBearerAuth,

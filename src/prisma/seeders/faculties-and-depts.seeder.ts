@@ -1,4 +1,4 @@
-import { Level, PrismaClient } from 'prisma/client/database';
+import { Level, PrismaClient } from '@prisma/client';
 
 export const collegeOfHealthSciences: Record<
   string,

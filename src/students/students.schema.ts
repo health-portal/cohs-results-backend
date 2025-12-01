@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender, Level } from 'prisma/client/database';
+import { Gender, Level } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,

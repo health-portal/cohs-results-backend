@@ -1,4 +1,4 @@
-import { LecturerRole, PrismaClient } from 'prisma/client/database';
+import { LecturerRole, PrismaClient } from '@prisma/client';
 import { collegeOfHealthSciences } from './faculties-and-depts.seeder';
 
 export default async function seedLecturerDesignations(prisma: PrismaClient) {

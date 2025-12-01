@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCourseBody, UpdateCourseBody } from './courses.schema';
 import { UploadFileBody } from 'src/files/files.schema';
-import { FileCategory } from 'prisma/client/database';
+import { FileCategory } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
 @Injectable()
@@ -45,10 +45,12 @@ export class CoursesService {
       },
     });
 
-    await this.messageQueueService.enqueueFile({
+    const job = await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
       fileCategory: FileCategory.COURSES,
     });
+
+    return job;
   }
 
   async getCourses() {

@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { RegisterStudentBody, EditResultBody } from './lecturers.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { FileCategory, ResultType } from 'prisma/client/database';
+import { FileCategory, ResultType } from '@prisma/client';
 import { UploadFileBody } from 'src/files/files.schema';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 

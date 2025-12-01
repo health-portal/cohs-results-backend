@@ -1,5 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { pgmq, Task } from 'prisma-pgmq';
+import { Injectable } from '@nestjs/common';
 import {
   EmailSubject,
   NotificationSchema,
@@ -10,28 +9,20 @@ import {
   SetPasswordSchema,
   setPasswordTemplate,
 } from './message-queue.schema';
-import { PrismaClient } from 'prisma/client/message-queue';
 import { TokensService } from 'src/tokens/tokens.service';
 import { TokenPayload } from 'src/auth/auth.schema';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
-export class MessageQueueService
-  extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
-  constructor(private readonly tokensService: TokensService) {
-    super();
-  }
+export class MessageQueueService {
+  constructor(
+    @InjectQueue(QueueTable.EMAILS) private emailQueue: Queue,
+    @InjectQueue(QueueTable.FILES) private fileQueue: Queue,
+    private readonly tokensService: TokensService,
+  ) {}
 
-  async onModuleInit() {
-    await this.$connect();
-  }
-
-  async onModuleDestroy() {
-    await this.$disconnect();
-  }
-
-  async generateTokenUrl(
+  private async generateTokenUrl(
     isActivateAccount: boolean,
     tokenPayload: TokenPayload,
   ) {
@@ -40,47 +31,44 @@ export class MessageQueueService
       : await this.tokensService.genResetPasswordUrl(tokenPayload);
   }
 
-  async enqueueHiPriorityEmail({
-    isActivateAccount,
-    tokenPayload,
-  }: SetPasswordSchema) {
-    const url = await this.generateTokenUrl(isActivateAccount, tokenPayload);
+  async enqueueEmail(data: SetPasswordSchema | NotificationSchema) {
+    if (data instanceof SetPasswordSchema) {
+      const url = await this.generateTokenUrl(
+        data.isActivateAccount,
+        data.tokenPayload,
+      );
 
-    const payload: SendEmailPayload = {
-      subject: isActivateAccount
-        ? EmailSubject.ACTIVATE_ACCOUNT
-        : EmailSubject.RESET_PASSWORD,
-      toEmail: tokenPayload.email,
-      content: setPasswordTemplate(isActivateAccount, url),
-    };
+      console.log('URL:', url);
 
-    await pgmq.send(
-      this,
-      QueueTable.HI_PRIORITY_EMAILS,
-      payload as unknown as Task,
-    );
-  }
+      const payload: SendEmailPayload = {
+        subject: data.isActivateAccount
+          ? EmailSubject.ACTIVATE_ACCOUNT
+          : EmailSubject.RESET_PASSWORD,
+        toEmail: data.tokenPayload.email,
+        content: setPasswordTemplate(data.isActivateAccount, url),
+      };
 
-  async enqueueLowPriorityEmail({
-    subject,
-    message,
-    title,
-    email,
-  }: NotificationSchema) {
-    const payload: SendEmailPayload = {
-      subject,
-      toEmail: email,
-      content: notificationTemplate(title, message),
-    };
+      return await this.emailQueue.add('sendEmail', payload, {
+        removeOnComplete: true,
+        priority: data.isActivateAccount ? 10 : 100, // Reset password emails - high priority, Activate account emails - medium priority
+      });
+    } else if (data instanceof NotificationSchema) {
+      const payload: SendEmailPayload = {
+        subject: data.subject,
+        toEmail: data.email,
+        content: notificationTemplate(data.title, data.message),
+      };
 
-    await pgmq.send(
-      this,
-      QueueTable.LO_PRIORITY_EMAILS,
-      payload as unknown as Task,
-    );
+      // Notification email - low priority
+      return await this.emailQueue.add('sendEmail', payload, {
+        removeOnComplete: true,
+      });
+    }
   }
 
   async enqueueFile(payload: ParseFilePayload) {
-    await pgmq.send(this, QueueTable.FILES, payload as unknown as Task);
+    return await this.fileQueue.add('parseFile', payload, {
+      removeOnComplete: true,
+    });
   }
 }

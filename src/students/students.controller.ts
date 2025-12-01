@@ -29,7 +29,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { UploadFileBody } from 'src/files/files.schema';
 import { User } from 'src/auth/user.decorator';
 

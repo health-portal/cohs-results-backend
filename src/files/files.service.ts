@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { FileCategory, ResultType, UserRole } from 'prisma/client/database';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { FileCategory, ResultType, UserRole } from '@prisma/client';
 import { CreateCourseBody, CreateCoursesRes } from 'src/courses/courses.schema';
 import {
   CreateLecturerBody,
@@ -25,6 +25,7 @@ import {
 export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => MessageQueueService))
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
@@ -103,7 +104,7 @@ export class FilesService {
           },
         });
 
-        await this.messageQueueService.enqueueHiPriorityEmail({
+        await this.messageQueueService.enqueueEmail({
           isActivateAccount: true,
           tokenPayload: {
             email: createdUser.email,
@@ -147,7 +148,7 @@ export class FilesService {
           },
         });
 
-        await this.messageQueueService.enqueueHiPriorityEmail({
+        await this.messageQueueService.enqueueEmail({
           isActivateAccount: true,
           tokenPayload: {
             email: createdUser.email,
@@ -211,7 +212,7 @@ export class FilesService {
           data: { results: { create: { scores, type: ResultType.INITIAL } } },
         });
 
-        await this.messageQueueService.enqueueLowPriorityEmail({
+        await this.messageQueueService.enqueueEmail({
           subject: EmailSubject.RESULT_UPLOAD,
           email: foundStudent.user.email,
           message: `Your result has been uploaded for the course session ${courseSessionId}.`,

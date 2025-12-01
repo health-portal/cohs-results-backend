@@ -7,7 +7,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { Semester } from 'prisma/client/database';
+import { Semester } from '@prisma/client';
 import { DepartmentRes } from 'src/college/college.schema';
 import { ParseCsvData } from 'src/lib/csv';
 

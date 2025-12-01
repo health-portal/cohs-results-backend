@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AddAdminBody, UpdateAdminBody } from './admin.schema';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class AdminService {
       },
     });
 
-    await this.messageQueueService.enqueueHiPriorityEmail({
+    await this.messageQueueService.enqueueEmail({
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,

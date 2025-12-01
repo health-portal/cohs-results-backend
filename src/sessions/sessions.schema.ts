@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Level } from 'prisma/client/database';
+import { Level } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsArray, IsDate, IsEnum, IsUUID } from 'class-validator';
 import {

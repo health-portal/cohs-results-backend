@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from 'prisma/client/database';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { env } from 'src/lib/environment';
 
 export default async function seedAdmins(prisma: PrismaClient) {

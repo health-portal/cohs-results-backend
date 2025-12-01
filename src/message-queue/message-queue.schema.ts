@@ -1,10 +1,9 @@
-import { FileCategory } from 'prisma/client/database';
+import { FileCategory } from '@prisma/client';
 import { TokenPayload } from 'src/auth/auth.schema';
 import { env } from 'src/lib/environment';
 
 export enum QueueTable {
-  HI_PRIORITY_EMAILS = 'hi-priority-emails',
-  LO_PRIORITY_EMAILS = 'lo-priority-emails',
+  EMAILS = 'emails',
   FILES = 'files',
 }
 // Files
@@ -29,12 +28,12 @@ export interface SendEmailPayload {
   content: string;
 }
 
-export interface SetPasswordSchema {
+export class SetPasswordSchema {
   isActivateAccount: boolean;
   tokenPayload: TokenPayload;
 }
 
-export interface NotificationSchema {
+export class NotificationSchema {
   subject: EmailSubject;
   email: string;
   title: string;

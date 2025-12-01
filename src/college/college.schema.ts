@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Level } from 'prisma/client/database';
+import { Level } from '@prisma/client';
 import {
   IsNotEmpty,
   IsString,

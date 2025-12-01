@@ -13,7 +13,7 @@ import {
 import { LecturerService } from './lecturer.service';
 import { User } from 'src/auth/user.decorator';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { LecturerData } from 'src/auth/auth.schema';
 import type { UserPayload } from 'src/auth/auth.schema';

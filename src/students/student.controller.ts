@@ -11,7 +11,7 @@ import { StudentService } from './student.service';
 import { User } from 'src/auth/user.decorator';
 import type { UserPayload, StudentData } from 'src/auth/auth.schema';
 import { ChangePasswordBody } from 'src/auth/auth.schema';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import {

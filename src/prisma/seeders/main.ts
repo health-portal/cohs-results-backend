@@ -1,4 +1,4 @@
-import { PrismaClient } from 'prisma/client/database';
+import { PrismaClient } from '@prisma/client';
 import seedAdmins from './admin.seeder';
 import seedFacultiesAndDepartments from './faculties-and-depts.seeder';
 import seedLecturerDesignations from './lecturer-designations.seeder';

@@ -4,7 +4,7 @@ import {
   Level,
   ResultType,
   Semester,
-} from 'prisma/client/database';
+} from '@prisma/client';
 import {
   IsEmail,
   IsNotEmpty,

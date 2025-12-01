@@ -14,7 +14,7 @@ import {
 } from './auth.schema';
 import * as argon2 from 'argon2';
 import { isEmail } from 'class-validator';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { TokensService } from 'src/tokens/tokens.service';
 
@@ -157,7 +157,7 @@ export class AuthService {
   async requestPasswordReset({ identifier, role }: RequestPasswordResetBody) {
     const foundUser = await this.findUser(identifier, role);
 
-    await this.messageQueueService.enqueueHiPriorityEmail({
+    const job = await this.messageQueueService.enqueueEmail({
       isActivateAccount: true,
       tokenPayload: {
         email: foundUser.email,
@@ -165,6 +165,8 @@ export class AuthService {
         sub: foundUser.id,
       },
     });
+
+    return { job };
   }
 
   async confirmPasswordReset({ password, tokenString }: SetPasswordBody) {

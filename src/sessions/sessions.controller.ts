@@ -19,7 +19,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
-import { UserRole } from 'prisma/client/database';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CourseRes } from 'src/courses/courses.schema';
 import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
