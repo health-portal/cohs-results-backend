@@ -7,7 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { StudentService } from './student.service';
+import type { StudentService } from './student.service';
 import { User } from 'src/auth/user.decorator';
 import type { UserPayload, StudentData } from 'src/auth/auth.schema';
 import { ChangePasswordBody } from 'src/auth/auth.schema';

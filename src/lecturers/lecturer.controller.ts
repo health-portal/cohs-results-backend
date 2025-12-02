@@ -10,17 +10,17 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { LecturerService } from './lecturer.service';
+import type { LecturerService } from './lecturer.service';
 import { User } from 'src/auth/user.decorator';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { LecturerData } from 'src/auth/auth.schema';
+import type { LecturerData } from 'src/auth/auth.schema';
 import type { UserPayload } from 'src/auth/auth.schema';
 import {
   CourseSessionRes,
   EditResultBody,
-  RegisterStudentBody,
+  type RegisterStudentBody,
   LecturerProfileRes,
   EnrollmentRes,
 } from './lecturers.schema';
@@ -34,7 +34,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { UploadFileBody } from 'src/files/files.schema';
+import type { UploadFileBody } from 'src/files/files.schema';
 
 @ApiTags('Lecturer')
 @ApiBearerAuth('accessToken')

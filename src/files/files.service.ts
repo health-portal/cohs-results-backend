@@ -1,24 +1,24 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { FileCategory, ResultType, UserRole } from '@prisma/client';
-import { CreateCourseBody, CreateCoursesRes } from 'src/courses/courses.schema';
+import { CreateCourseBody, type CreateCoursesRes } from 'src/courses/courses.schema';
 import {
   CreateLecturerBody,
-  CreateLecturersRes,
+  type CreateLecturersRes,
   RegisterStudentBody,
-  RegisterStudentsRes,
+  type RegisterStudentsRes,
   UploadResultRow,
-  UploadResultsRes,
+  type UploadResultsRes,
 } from 'src/lecturers/lecturers.schema';
 import { parseCsv } from 'src/lib/csv';
 import {
   EmailSubject,
-  ParseFilePayload,
+  type ParseFilePayload,
 } from 'src/message-queue/message-queue.schema';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import type { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateStudentBody,
-  CreateStudentsRes,
+  type CreateStudentsRes,
 } from 'src/students/students.schema';
 
 @Injectable()

@@ -1,20 +1,20 @@
-import { cleanEnv, str, json, url, port } from 'envalid';
-import * as dotenv from 'dotenv';
+import { cleanEnv, str, json, url, port } from "envalid";
+import * as dotenv from "dotenv";
 
 dotenv.config();
 
 export const env = cleanEnv(process.env, {
-  DATABASE_URL: str(),
-  DEFAULT_ADMINS: json<{ name: string; email: string }[]>(),
-  FRONTEND_BASE_URL: url(),
-  JWT_SECRET: str(),
-  PORT: port(),
-  REDIS_HOST: str(),
-  REDIS_PASSWORD: str(),
-  REDIS_PORT: port(),
-  REDIS_URL: str(),
-  REDIS_USERNAME: str(),
-  SMTPEXPRESS_PROJECT_ID: str(),
-  SMTPEXPRESS_PROJECT_SECRET: str(),
-  SMTPEXPRESS_SENDER_EMAIL: str(),
+	DATABASE_URL: str(),
+	DEFAULT_ADMINS: json<{ name: string; email: string }[]>(),
+	FRONTEND_BASE_URL: url(),
+	JWT_SECRET: str(),
+	PORT: port(),
+	REDIS_HOST: str(),
+	REDIS_PASSWORD: str(),
+	REDIS_PORT: port(),
+	REDIS_URL: str(),
+	REDIS_USERNAME: str(),
+	SMTPEXPRESS_PROJECT_ID: str(),
+	SMTPEXPRESS_PROJECT_SECRET: str(),
+	SMTPEXPRESS_SENDER_EMAIL: str(),
 });

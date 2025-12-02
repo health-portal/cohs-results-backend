@@ -469,3 +469,20 @@ model AuditLog {
     @@index([createdAt])
     @@map("audit_logs")
 }
+
+model QueueJob {
+    id        BigInt   @id @default(autoincrement())
+    createdAt DateTime @default(now())
+
+    queueName   String    @default("default")
+    payload     Json
+    runAt       DateTime  @default(now())
+    attempts    Int       @default(0)
+    maxAttempts Int       @default(5)
+    lockedAt    DateTime?
+    lockedBy    String?
+    failedAt    DateTime?
+    errorText   String?
+
+    @@index([queueName, runAt, id], name: "idx_queue_jobs_runnable")
+}

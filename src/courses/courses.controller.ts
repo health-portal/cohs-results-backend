@@ -8,11 +8,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { CoursesService } from './courses.service';
+import type { CoursesService } from './courses.service';
 import {
   CourseRes,
-  CreateCourseBody,
-  UpdateCourseBody,
+  type CreateCourseBody,
+  type UpdateCourseBody,
 } from './courses.schema';
 import {
   ApiBadRequestResponse,
@@ -28,7 +28,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
-import { UploadFileBody } from 'src/files/files.schema';
+import type { UploadFileBody } from 'src/files/files.schema';
 
 @ApiTags('Courses', 'Admin')
 @ApiBearerAuth('accessToken')

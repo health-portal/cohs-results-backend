@@ -9,10 +9,10 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { LecturersService } from './lecturers.service';
+import type { LecturersService } from './lecturers.service';
 import {
   CreateLecturerBody,
-  UpdateLecturerBody,
+  type UpdateLecturerBody,
   LecturerProfileRes,
 } from './lecturers.schema';
 import {
@@ -29,7 +29,7 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
-import { UploadFileBody } from 'src/files/files.schema';
+import type { UploadFileBody } from 'src/files/files.schema';
 import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Lecturers', 'Admin')

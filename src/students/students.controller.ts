@@ -12,11 +12,11 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import {
-  CreateStudentBody,
+  type CreateStudentBody,
   StudentProfileRes,
   UpdateStudentBody,
 } from './students.schema';
-import { StudentsService } from './students.service';
+import type { StudentsService } from './students.service';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -30,7 +30,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { UploadFileBody } from 'src/files/files.schema';
+import type { UploadFileBody } from 'src/files/files.schema';
 import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Students', 'Admin')

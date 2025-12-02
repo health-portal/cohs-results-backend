@@ -1,74 +1,87 @@
-import { Injectable } from '@nestjs/common';
 import {
-  EmailSubject,
-  NotificationSchema,
-  notificationTemplate,
-  ParseFilePayload,
-  QueueTable,
-  SendEmailPayload,
-  SetPasswordSchema,
-  setPasswordTemplate,
-} from './message-queue.schema';
-import { TokensService } from 'src/tokens/tokens.service';
-import { TokenPayload } from 'src/auth/auth.schema';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+	Injectable,
+	type OnModuleDestroy,
+	type OnModuleInit,
+} from "@nestjs/common";
+import {
+	EmailSubject,
+	NotificationSchema,
+	notificationTemplate,
+	type ParseFilePayload,
+	QueueTable,
+	type SendEmailPayload,
+	SetPasswordSchema,
+	setPasswordTemplate,
+} from "./message-queue.schema";
+import type { TokensService } from "src/tokens/tokens.service";
+import type { TokenPayload } from "src/auth/auth.schema";
+import { PgBoss } from "pg-boss";
+import { env } from "src/lib/environment";
 
 @Injectable()
-export class MessageQueueService {
-  constructor(
-    @InjectQueue(QueueTable.EMAILS) private emailQueue: Queue,
-    @InjectQueue(QueueTable.FILES) private fileQueue: Queue,
-    private readonly tokensService: TokensService,
-  ) {}
+export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
+	private readonly boss: PgBoss;
+	constructor(private readonly tokensService: TokensService) {
+		this.boss = new PgBoss(env.DATABASE_URL);
+	}
 
-  private async generateTokenUrl(
-    isActivateAccount: boolean,
-    tokenPayload: TokenPayload,
-  ) {
-    return isActivateAccount
-      ? await this.tokensService.genActivateAccountUrl(tokenPayload)
-      : await this.tokensService.genResetPasswordUrl(tokenPayload);
-  }
+	async onModuleInit() {
+		await this.boss.start();
+		const queueResults = await this.boss.getQueues();
+		const queueNames = queueResults.map((queue) => queue.name);
 
-  async enqueueEmail(data: SetPasswordSchema | NotificationSchema) {
-    if (data instanceof SetPasswordSchema) {
-      const url = await this.generateTokenUrl(
-        data.isActivateAccount,
-        data.tokenPayload,
-      );
+		for (const table of Object.values(QueueTable)) {
+			if (!queueNames.includes(table)) {
+				await this.boss.createQueue(table);
+				console.log(`Queue ${table} created`);
+			}
+		}
+	}
 
-      console.log('URL:', url);
+	async onModuleDestroy() {
+		await this.boss.stop();
+	}
 
-      const payload: SendEmailPayload = {
-        subject: data.isActivateAccount
-          ? EmailSubject.ACTIVATE_ACCOUNT
-          : EmailSubject.RESET_PASSWORD,
-        toEmail: data.tokenPayload.email,
-        content: setPasswordTemplate(data.isActivateAccount, url),
-      };
+	private async generateTokenUrl(
+		isActivateAccount: boolean,
+		tokenPayload: TokenPayload,
+	) {
+		return isActivateAccount
+			? await this.tokensService.genActivateAccountUrl(tokenPayload)
+			: await this.tokensService.genResetPasswordUrl(tokenPayload);
+	}
 
-      return await this.emailQueue.add('sendEmail', payload, {
-        removeOnComplete: true,
-        priority: data.isActivateAccount ? 10 : 100, // Reset password emails - high priority, Activate account emails - medium priority
-      });
-    } else if (data instanceof NotificationSchema) {
-      const payload: SendEmailPayload = {
-        subject: data.subject,
-        toEmail: data.email,
-        content: notificationTemplate(data.title, data.message),
-      };
+	async enqueueEmail(data: SetPasswordSchema | NotificationSchema) {
+		if (data instanceof SetPasswordSchema) {
+			const url = await this.generateTokenUrl(
+				data.isActivateAccount,
+				data.tokenPayload,
+			);
 
-      // Notification email - low priority
-      return await this.emailQueue.add('sendEmail', payload, {
-        removeOnComplete: true,
-      });
-    }
-  }
+			const payload: SendEmailPayload = {
+				subject: data.isActivateAccount
+					? EmailSubject.ACTIVATE_ACCOUNT
+					: EmailSubject.RESET_PASSWORD,
+				toEmail: data.tokenPayload.email,
+				content: setPasswordTemplate(data.isActivateAccount, url),
+			};
 
-  async enqueueFile(payload: ParseFilePayload) {
-    return await this.fileQueue.add('parseFile', payload, {
-      removeOnComplete: true,
-    });
-  }
+			return await this.boss.send(QueueTable.EMAILS, payload, {
+				priority: data.isActivateAccount ? 1 : 2, // Reset password emails - high priority, Activate account emails - medium priority
+			});
+		} else if (data instanceof NotificationSchema) {
+			const payload: SendEmailPayload = {
+				subject: data.subject,
+				toEmail: data.email,
+				content: notificationTemplate(data.title, data.message),
+			};
+
+			// Notification email - low priority
+			return await this.boss.send(QueueTable.EMAILS, payload, { priority: 0 });
+		}
+	}
+
+	async enqueueFile(payload: ParseFilePayload) {
+		return await this.boss.send(QueueTable.FILES, payload);
+	}
 }

@@ -1,65 +1,65 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateDepartmentBody, CreateFacultyBody } from './college.schema';
+import { Injectable } from "@nestjs/common";
+import type { PrismaService } from "src/prisma/prisma.service";
+import type { CreateDepartmentBody, CreateFacultyBody } from "./college.schema";
 
 @Injectable()
 export class CollegeService {
-  constructor(private readonly prisma: PrismaService) {}
+	constructor(private readonly prisma: PrismaService) {}
 
-  async getFaculties() {
-    return await this.prisma.faculty.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
-  }
+	async getFaculties() {
+		return await this.prisma.faculty.findMany({
+			where: { deletedAt: null },
+			select: {
+				id: true,
+				name: true,
+			},
+		});
+	}
 
-  async getDepartments() {
-    return await this.prisma.department.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        name: true,
-        shortName: true,
-        maxLevel: true,
-        faculty: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-  }
+	async getDepartments() {
+		return await this.prisma.department.findMany({
+			where: { deletedAt: null },
+			select: {
+				id: true,
+				name: true,
+				shortName: true,
+				maxLevel: true,
+				faculty: {
+					select: {
+						id: true,
+						name: true,
+					},
+				},
+			},
+		});
+	}
 
-  async createFaculty({ name }: CreateFacultyBody) {
-    await this.prisma.faculty.create({ data: { name } });
-  }
+	async createFaculty({ name }: CreateFacultyBody) {
+		await this.prisma.faculty.create({ data: { name } });
+	}
 
-  async deleteFaculty(facultyId: string) {
-    await this.prisma.faculty.update({
-      where: { id: facultyId },
-      data: { deletedAt: new Date() },
-    });
-  }
+	async deleteFaculty(facultyId: string) {
+		await this.prisma.faculty.update({
+			where: { id: facultyId },
+			data: { deletedAt: new Date() },
+		});
+	}
 
-  async createDepartment({
-    facultyId,
-    name,
-    shortName,
-    maxLevel,
-  }: CreateDepartmentBody) {
-    await this.prisma.department.create({
-      data: { facultyId, name, shortName, maxLevel },
-    });
-  }
+	async createDepartment({
+		facultyId,
+		name,
+		shortName,
+		maxLevel,
+	}: CreateDepartmentBody) {
+		await this.prisma.department.create({
+			data: { facultyId, name, shortName, maxLevel },
+		});
+	}
 
-  async deleteDepartment(deptId: string) {
-    await this.prisma.department.update({
-      where: { id: deptId },
-      data: { deletedAt: new Date() },
-    });
-  }
+	async deleteDepartment(deptId: string) {
+		await this.prisma.department.update({
+			where: { id: deptId },
+			data: { deletedAt: new Date() },
+		});
+	}
 }

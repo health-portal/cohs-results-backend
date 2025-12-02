@@ -1,11 +1,11 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { Request } from 'express';
-import { UserPayload } from './auth.schema';
+import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
+import type { Request } from "express";
+import type { UserPayload } from "./auth.schema";
 
 export const User = createParamDecorator(
-  (data: string, ctx: ExecutionContext) => {
-    const request: Request = ctx.switchToHttp().getRequest();
+	(data: string, ctx: ExecutionContext) => {
+		const request: Request = ctx.switchToHttp().getRequest();
 
-    return data ? request.user?.[data] : (request.user as UserPayload);
-  },
+		return data ? request.user?.[data] : (request.user as UserPayload);
+	},
 );

@@ -8,10 +8,10 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { CollegeService } from './college.service';
+import type { CollegeService } from './college.service';
 import {
-  CreateDepartmentBody,
-  CreateFacultyBody,
+  type CreateDepartmentBody,
+  type CreateFacultyBody,
   DepartmentRes,
   FacultyRes,
 } from './college.schema';
