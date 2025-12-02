@@ -1,7 +1,11 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
-import type { AdminService } from './admin.service';
+import { AdminService } from './admin.service';
 import { User } from 'src/auth/user.decorator';
-import { type AddAdminBody, AdminProfileRes, type UpdateAdminBody } from './admin.schema';
+import {
+  type AddAdminBody,
+  AdminProfileRes,
+  type UpdateAdminBody,
+} from './admin.schema';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -13,7 +17,7 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import type { AdminData, UserPayload } from 'src/auth/auth.schema';
+import { AdminData, type UserPayload } from 'src/auth/auth.schema';
 
 @ApiTags('Admin')
 @ApiBearerAuth('accessToken')

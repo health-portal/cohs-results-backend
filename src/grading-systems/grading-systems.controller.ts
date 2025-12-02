@@ -7,8 +7,8 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import type { GradingSystemsService } from './grading-systems.service';
-import type {
+import { GradingSystemsService } from './grading-systems.service';
+import {
   CreateGradingSystemBody,
   UpdateGradingSystemBody,
   UpsertGradingComputationsBody,

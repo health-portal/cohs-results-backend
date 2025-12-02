@@ -1,12 +1,4 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import type { AuthService } from './auth.service';
-import {
-  SetPasswordBody,
-  RequestPasswordResetBody,
-  SigninUserBody,
-  SetPasswordRes,
-  SigninUserRes,
-} from './auth.schema';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -17,6 +9,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import {
+  RequestPasswordResetBody,
+  SetPasswordBody,
+  SetPasswordRes,
+  SigninUserBody,
+  SigninUserRes,
+} from './auth.schema';
+import { AuthService } from './auth.service';
 
 @ApiTags('Auth')
 @Controller('auth')

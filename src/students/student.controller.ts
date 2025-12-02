@@ -7,9 +7,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import type { StudentService } from './student.service';
+import { StudentService } from './student.service';
 import { User } from 'src/auth/user.decorator';
-import type { UserPayload, StudentData } from 'src/auth/auth.schema';
+import { type UserPayload, StudentData } from 'src/auth/auth.schema';
 import { ChangePasswordBody } from 'src/auth/auth.schema';
 import { UserRole } from '@prisma/client';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';

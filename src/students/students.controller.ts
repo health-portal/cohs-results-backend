@@ -16,7 +16,7 @@ import {
   StudentProfileRes,
   UpdateStudentBody,
 } from './students.schema';
-import type { StudentsService } from './students.service';
+import { StudentsService } from './students.service';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -30,7 +30,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import type { UploadFileBody } from 'src/files/files.schema';
+import { UploadFileBody } from 'src/files/files.schema';
 import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Students', 'Admin')

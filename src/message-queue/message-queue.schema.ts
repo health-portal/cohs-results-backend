@@ -1,50 +1,50 @@
-import type { FileCategory } from "@prisma/client";
-import type { TokenPayload } from "src/auth/auth.schema";
-import { env } from "src/lib/environment";
+import { FileCategory } from '@prisma/client';
+import { TokenPayload } from 'src/auth/auth.schema';
+import { env } from 'src/lib/environment';
 
 export enum QueueTable {
-	EMAILS = "emails",
-	FILES = "files",
+  EMAILS = 'emails',
+  FILES = 'files',
 }
 // Files
 export interface ParseFilePayload {
-	fileId: string;
-	fileCategory: FileCategory;
-	courseSessionId?: string;
+  fileId: string;
+  fileCategory: FileCategory;
+  courseSessionId?: string;
 }
 
 // Emails
 export enum EmailSubject {
-	ACTIVATE_ACCOUNT = "Activate Your Account",
-	RESET_PASSWORD = "Reset Your Password",
-	RESULT_UPLOAD = "Your Result Was Uploaded",
-	APPROVAL_REQUEST = "Request for Approval",
-	APPROVAL_SUCCESS = "Approval Successful",
+  ACTIVATE_ACCOUNT = 'Activate Your Account',
+  RESET_PASSWORD = 'Reset Your Password',
+  RESULT_UPLOAD = 'Your Result Was Uploaded',
+  APPROVAL_REQUEST = 'Request for Approval',
+  APPROVAL_SUCCESS = 'Approval Successful',
 }
 
 export interface SendEmailPayload {
-	toEmail: string;
-	subject: EmailSubject;
-	content: string;
+  toEmail: string;
+  subject: EmailSubject;
+  content: string;
 }
 
 export class SetPasswordSchema {
-	isActivateAccount: boolean;
-	tokenPayload: TokenPayload;
+  isActivateAccount: boolean;
+  tokenPayload: TokenPayload;
 }
 
 export class NotificationSchema {
-	subject: EmailSubject;
-	email: string;
-	title: string;
-	message: string;
+  subject: EmailSubject;
+  email: string;
+  title: string;
+  message: string;
 }
 
 export const setPasswordTemplate = (
-	isActivateAccount: boolean,
-	url: string,
+  isActivateAccount: boolean,
+  url: string,
 ) => {
-	return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -66,9 +66,9 @@ export const setPasswordTemplate = (
       <p>College of Health Sciences</p>
     </div>
     <div class="content">
-      <h3>${isActivateAccount ? "Activate Your Account" : "Reset Your Password"}</h3>
+      <h3>${isActivateAccount ? 'Activate Your Account' : 'Reset Your Password'}</h3>
       <p>Welcome to the OAU College of Health Sciences Results Portal. To complete your registration and access your account, please activate it using the button below.</p>
-      <p><a href="${url}" class="button">${isActivateAccount ? "Activate Account" : "Reset Password"}</a></p>
+      <p><a href="${url}" class="button">${isActivateAccount ? 'Activate Account' : 'Reset Password'}</a></p>
       <p>If you didn’t request this account, you can safely ignore this email.</p>
       <p>Best regards,<br>OAU College of Health Sciences Team</p>
     </div>
@@ -81,7 +81,7 @@ export const setPasswordTemplate = (
 };
 
 export const notificationTemplate = (title: string, message: string) => {
-	return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">

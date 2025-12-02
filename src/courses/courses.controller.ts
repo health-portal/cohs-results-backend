@@ -8,7 +8,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import type { CoursesService } from './courses.service';
+import { CoursesService } from './courses.service';
 import {
   CourseRes,
   type CreateCourseBody,
@@ -28,7 +28,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
-import type { UploadFileBody } from 'src/files/files.schema';
+import { UploadFileBody } from 'src/files/files.schema';
 
 @ApiTags('Courses', 'Admin')
 @ApiBearerAuth('accessToken')
