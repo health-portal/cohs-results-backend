@@ -9,9 +9,17 @@ import {
 } from './message-queue.schema';
 import { FilesModule } from 'src/files/files.module';
 import { FilesService } from 'src/files/files.service';
+import { JwtModule } from '@nestjs/jwt';
+import { TokensModule } from 'src/tokens/tokens.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
-  imports: [FilesModule],
+  imports: [
+    FilesModule,
+    JwtModule.register({ secret: env.JWT_SECRET, global: true }),
+    PrismaModule,
+    TokensModule,
+  ],
 })
 export class MessageQueueWorkersModule
   implements OnModuleInit, OnModuleDestroy
