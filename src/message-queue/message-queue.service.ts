@@ -31,10 +31,8 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     const queueNames = queueResults.map((queue) => queue.name);
 
     for (const table of Object.values(QueueTable)) {
-      if (!queueNames.includes(table)) {
-        await this.boss.createQueue(table);
-        console.log(`Queue ${table} created`);
-      }
+      if (!queueNames.includes(table))
+        throw new Error(`Queue ${table} not found`);
     }
   }
 
