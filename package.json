@@ -7,14 +7,15 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "start": "nest start",
+    "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "start:workers": "node dist/workers.js",
-    "prebuild": "npm run db:migrate && npx prisma generate",
-    "postbuild": "npm run db:seed:prod",
-    "db:migrate": "npx prisma migrate dev",
+    "prebuild": "npm run prisma:generate",
+    "postbuild": "npm run db:migrate && npm run db:seed:prod",
+    "prisma:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate deploy",
     "db:seed": "npx ts-node -r tsconfig-paths/register src/prisma/seeders/main.ts",
     "db:seed:prod": "node dist/prisma/seeders/main.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -23,7 +24,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "postinstall": "npm run prisma:generate && npm run db:migrate"
   },
   "dependencies": {
     "@eslint/eslintrc": "^3.3.3",
