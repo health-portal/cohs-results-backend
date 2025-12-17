@@ -1,11 +1,6 @@
-import {
-  Injectable,
-  type OnModuleDestroy,
-  type OnModuleInit,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
 import { TokenPayload } from 'src/auth/auth.schema';
-import { env } from 'src/lib/environment';
 import { TokensService } from 'src/tokens/tokens.service';
 import {
   EmailSubject,
@@ -19,26 +14,11 @@ import {
 } from './message-queue.schema';
 
 @Injectable()
-export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly boss: PgBoss;
-  constructor(private readonly tokensService: TokensService) {
-    this.boss = new PgBoss(env.DATABASE_URL);
-  }
-
-  async onModuleInit() {
-    await this.boss.start();
-    const queueResults = await this.boss.getQueues();
-    const queueNames = queueResults.map((queue) => queue.name);
-
-    for (const table of Object.values(QueueTable)) {
-      if (!queueNames.includes(table))
-        throw new Error(`Queue ${table} not found`);
-    }
-  }
-
-  async onModuleDestroy() {
-    await this.boss.stop();
-  }
+export class MessageQueueService {
+  constructor(
+    private readonly tokensService: TokensService,
+    @Inject('PG_BOSS') private readonly boss: PgBoss,
+  ) {}
 
   private async generateTokenUrl(
     isActivateAccount: boolean,
