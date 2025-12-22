@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
 } from '@nestjs/common';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
@@ -30,7 +31,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { UploadFileBody } from 'src/files/files.schema';
 import { User } from 'src/auth/user.decorator';
 
 @ApiTags('Students', 'Admin')
@@ -53,7 +53,7 @@ export class StudentsController {
   @Post('batch')
   async uploadFileForStudents(
     @User('sub') userId: string,
-    @Body() body: UploadFileBody,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.studentsService.uploadFileForStudents(userId, body);
   }

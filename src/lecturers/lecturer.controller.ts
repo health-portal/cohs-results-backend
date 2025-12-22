@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
 } from '@nestjs/common';
 import { LecturerService } from './lecturer.service';
@@ -33,7 +34,6 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { UploadFileBody } from 'src/files/files.schema';
 
 @ApiTags('Lecturer')
 @ApiBearerAuth('accessToken')
@@ -83,7 +83,7 @@ export class LecturerController {
   async uploadFileForStudentRegistrations(
     @User() user: UserPayload,
     @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-    @Body() body: UploadFileBody,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     const lecturerId = this.getLecturerId(user);
     return await this.lecturerService.uploadFileForStudentRegistrations(
@@ -98,7 +98,7 @@ export class LecturerController {
   async uploadFileForStudentResults(
     @User() user: UserPayload,
     @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-    @Body() body: UploadFileBody,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     const lecturerId = this.getLecturerId(user);
     return await this.lecturerService.uploadFileForStudentResults(

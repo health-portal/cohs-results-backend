@@ -20,7 +20,7 @@ export class AdminService {
       },
     });
 
-    await this.messageQueueService.enqueueEmail({
+    await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,

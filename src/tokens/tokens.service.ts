@@ -15,7 +15,7 @@ export class TokensService {
     const token = await this.jwtService.signAsync(payload, {
       expiresIn: '7d',
     });
-    const url = new URL(env.FRONTEND_BASE_URL + '/auth/activate');
+    const url = new URL(env.FRONTEND_ACTIVATION_URL);
     url.searchParams.set('token', token);
     console.log(`Activation URL: ${url}`);
     return url.toString();
@@ -25,7 +25,7 @@ export class TokensService {
     const token = await this.jwtService.signAsync(payload, {
       expiresIn: '15m',
     });
-    const url = new URL(env.FRONTEND_BASE_URL + '/auth/reset-password');
+    const url = new URL(env.FRONTEND_RESET_URL);
     url.searchParams.set('token', token);
     console.log(`Reset Password URL: ${url}`);
     return url.toString();

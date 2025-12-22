@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class CreateGradingSystemBody {
   @ApiProperty()
@@ -13,7 +20,9 @@ export class CreateGradingSystemBody {
   description: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   threshold: number;
 }
 
@@ -30,18 +39,22 @@ export class UpdateGradingSystemBody {
 export class GradingField {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   label: string;
 
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
   maxScore: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(99)
   weight: number;
 
   @ApiProperty()
@@ -62,19 +75,18 @@ export class UpsertGradingFieldsBody {
 export class GradingComputation {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   label: string;
 
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   expression: string;
-
-  @ApiProperty()
-  @IsNumber()
-  weight: number;
 
   @ApiProperty()
   @IsString()
@@ -101,11 +113,15 @@ export class GradingRange {
   description: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(99)
   minScore: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(100)
   maxScore: number;
 }
 

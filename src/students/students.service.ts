@@ -44,7 +44,7 @@ export class StudentsService {
       },
     });
 
-    await this.messageQueueService.enqueueEmail({
+    await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,

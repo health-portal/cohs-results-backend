@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CreateLecturerBody,
-  UpdateLecturerBody,
-} from './lecturers.schema';
+import { CreateLecturerBody, UpdateLecturerBody } from './lecturers.schema';
 import { FileCategory, UserRole } from '@prisma/client';
 import { UploadFileBody } from 'src/files/files.schema';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
@@ -41,7 +38,7 @@ export class LecturersService {
       },
     });
 
-    await this.messageQueueService.enqueueEmail({
+    await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,

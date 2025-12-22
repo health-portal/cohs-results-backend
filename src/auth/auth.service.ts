@@ -157,8 +157,8 @@ export class AuthService {
   async requestPasswordReset({ identifier, role }: RequestPasswordResetBody) {
     const foundUser = await this.findUser(identifier, role);
 
-    const job = await this.messageQueueService.enqueueEmail({
-      isActivateAccount: true,
+    const job = await this.messageQueueService.enqueueSetPasswordEmail({
+      isActivateAccount: false,
       tokenPayload: {
         email: foundUser.email,
         role: foundUser.role,

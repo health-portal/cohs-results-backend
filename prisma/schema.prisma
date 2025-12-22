@@ -447,6 +447,7 @@ model File {
     content      Bytes
     isCompressed Boolean      @default(false)
     category     FileCategory
+    metadata     Json?
 
     userId String
     user   User   @relation(fields: [userId], references: [id])

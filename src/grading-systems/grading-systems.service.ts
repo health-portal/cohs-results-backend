@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   CreateGradingSystemBody,
   UpdateGradingSystemBody,
@@ -7,6 +7,8 @@ import {
   UpsertGradingRangesBody,
 } from './grading-systems.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Parser } from 'expr-eval';
+import { hasUniqueValues } from 'src/lib/utils';
 
 @Injectable()
 export class GradingSystemsService {
@@ -55,6 +57,20 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { fields }: UpsertGradingFieldsBody,
   ) {
+    if (!hasUniqueValues(fields, 'variable'))
+      throw new BadRequestException('Variable names must be unique');
+
+    if (!hasUniqueValues(fields, 'label'))
+      throw new BadRequestException('Labels must be unique');
+
+    const totalWeight = fields.reduce((sum, field) => {
+      const totalWeight = sum + field.weight;
+      return totalWeight;
+    }, 0);
+
+    if (totalWeight !== 100)
+      throw new BadRequestException('Total weight must be 100');
+
     await this.prisma.gradingField.deleteMany({ where: { gradingSystemId } });
     await this.prisma.gradingField.createMany({
       data: fields.map((field) => ({
@@ -74,6 +90,33 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { computations }: UpsertGradingComputationsBody,
   ) {
+    if (!hasUniqueValues(computations, 'variable'))
+      throw new BadRequestException('Variable names must be unique');
+
+    if (!hasUniqueValues(computations, 'label'))
+      throw new BadRequestException('Labels must be unique');
+
+    const foundGradingFields = await this.getGradingFields(gradingSystemId);
+    const variables = foundGradingFields.map(
+      (gradingField) => gradingField.variable,
+    );
+    const variablesSuperset = new Set([...variables, 'units']);
+
+    const parser = new Parser();
+    for (const computation of computations) {
+      const parsedExpression = parser.parse(computation.expression);
+      const parsedVariables = parsedExpression.variables();
+      const invalidVariables = parsedVariables.filter(
+        (variable) => !variablesSuperset.has(variable),
+      );
+
+      if (invalidVariables.length > 0) {
+        throw new BadRequestException(
+          `Invalid variables in expression: ${invalidVariables.join(', ')}`,
+        );
+      }
+    }
+
     await this.prisma.gradingComputation.deleteMany({
       where: { gradingSystemId },
     });
@@ -95,6 +138,15 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { ranges }: UpsertGradingRangesBody,
   ) {
+    if (!hasUniqueValues(ranges, 'label'))
+      throw new BadRequestException('Labels must be unique');
+
+    const sortedRanges = ranges.sort((a, b) => a.minScore - b.minScore);
+    for (let i = 0; i < sortedRanges.length - 1; i++) {
+      if (sortedRanges[i].maxScore !== sortedRanges[i + 1].minScore - 1)
+        throw new BadRequestException('Ranges must be non-overlapping');
+    }
+
     await this.prisma.gradingRange.deleteMany({ where: { gradingSystemId } });
     await this.prisma.gradingRange.createMany({
       data: ranges.map((range) => ({
@@ -108,5 +160,18 @@ export class GradingSystemsService {
     return await this.prisma.gradingRange.findMany({
       where: { gradingSystemId },
     });
+  }
+
+  async validateScores(scores: object, gradingSystemId: string) {
+    const gradingFields = await this.getGradingFields(gradingSystemId);
+    const labels = gradingFields.map((field) => field.label);
+    return Object.keys(scores).every((key) => labels.includes(key));
+  }
+
+  async computeGradesFromScores(score: object, gradingSystemId: string) {
+    const gradingFields = await this.getGradingFields(gradingSystemId);
+    const gradingRanges = await this.getGradingRanges(gradingSystemId);
+    const gradingComputations =
+      await this.getGradingComputations(gradingSystemId);
   }
 }

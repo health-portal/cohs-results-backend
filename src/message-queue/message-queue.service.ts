@@ -29,34 +29,34 @@ export class MessageQueueService {
       : await this.tokensService.genResetPasswordUrl(tokenPayload);
   }
 
-  async enqueueEmail(data: SetPasswordSchema | NotificationSchema) {
-    if (data instanceof SetPasswordSchema) {
-      const url = await this.generateTokenUrl(
-        data.isActivateAccount,
-        data.tokenPayload,
-      );
+  async enqueueSetPasswordEmail(data: SetPasswordSchema) {
+    const url = await this.generateTokenUrl(
+      data.isActivateAccount,
+      data.tokenPayload,
+    );
 
-      const payload: SendEmailPayload = {
-        subject: data.isActivateAccount
-          ? EmailSubject.ACTIVATE_ACCOUNT
-          : EmailSubject.RESET_PASSWORD,
-        toEmail: data.tokenPayload.email,
-        content: setPasswordTemplate(data.isActivateAccount, url),
-      };
+    const payload: SendEmailPayload = {
+      subject: data.isActivateAccount
+        ? EmailSubject.ACTIVATE_ACCOUNT
+        : EmailSubject.RESET_PASSWORD,
+      toEmail: data.tokenPayload.email,
+      content: setPasswordTemplate(data.isActivateAccount, url),
+    };
 
-      return await this.boss.send(QueueTable.EMAILS, payload, {
-        priority: data.isActivateAccount ? 1 : 2, // Reset password emails - high priority, Activate account emails - medium priority
-      });
-    } else if (data instanceof NotificationSchema) {
-      const payload: SendEmailPayload = {
-        subject: data.subject,
-        toEmail: data.email,
-        content: notificationTemplate(data.title, data.message),
-      };
+    return await this.boss.send(QueueTable.EMAILS, payload, {
+      priority: data.isActivateAccount ? 1 : 2, // Reset password emails - high priority, Activate account emails - medium priority
+    });
+  }
 
-      // Notification email - low priority
-      return await this.boss.send(QueueTable.EMAILS, payload, { priority: 0 });
-    }
+  async enqueueNotificationEmail(data: NotificationSchema) {
+    const payload: SendEmailPayload = {
+      subject: data.subject,
+      toEmail: data.email,
+      content: notificationTemplate(data.title, data.message),
+    };
+
+    // Notification email - low priority
+    return await this.boss.send(QueueTable.EMAILS, payload, { priority: 0 });
   }
 
   async enqueueFile(payload: ParseFilePayload) {

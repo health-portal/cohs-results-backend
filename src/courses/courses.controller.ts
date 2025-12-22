@@ -6,22 +6,25 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import {
   CourseRes,
-  type CreateCourseBody,
-  type UpdateCourseBody,
+  CreateCourseBody,
+  UpdateCourseBody,
 } from './courses.schema';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
@@ -39,6 +42,7 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @ApiOperation({ summary: 'Create a new course' })
+  @ApiBody({ type: CreateCourseBody })
   @ApiCreatedResponse({ description: 'Course created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid course creation data' })
   @ApiConflictResponse({ description: 'Course already exists' })
@@ -51,7 +55,7 @@ export class CoursesController {
   @Post('batch')
   async uploadFileForCourses(
     @User('sub') userId: string,
-    @Body() body: UploadFileBody,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return await this.coursesService.uploadFileForCourses(userId, body);
   }
@@ -72,6 +76,8 @@ export class CoursesController {
   }
 
   @ApiOperation({ summary: 'Update a course by ID' })
+  @ApiBody({ type: UpdateCourseBody })
+  @ApiParam({ name: 'courseId', description: 'ID of the course to update' })
   @ApiOkResponse({ description: 'Course updated successfully' })
   @ApiNotFoundResponse({ description: 'Course not found' })
   @ApiConflictResponse({ description: 'Course already exists' })
@@ -84,6 +90,7 @@ export class CoursesController {
   }
 
   @ApiOperation({ summary: 'Delete a course by ID' })
+  @ApiParam({ name: 'courseId', description: 'ID of the course to delete' })
   @ApiOkResponse({ description: 'Course deleted successfully' })
   @ApiNotFoundResponse({ description: 'Course not found' })
   @Delete(':courseId')

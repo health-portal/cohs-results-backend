@@ -4,6 +4,7 @@ import {
   CreateCourseBody,
   type CreateCoursesRes,
 } from 'src/courses/courses.schema';
+import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
 import {
   CreateLecturerBody,
   type CreateLecturersRes,
@@ -12,7 +13,7 @@ import {
   UploadResultRow,
   type UploadResultsRes,
 } from 'src/lecturers/lecturers.schema';
-import { parseCsv } from 'src/lib/csv';
+import { parseCsv } from 'src/lib/file-processors';
 import {
   EmailSubject,
   type ParseFilePayload,
@@ -30,6 +31,7 @@ export class FilesService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => MessageQueueService))
     private readonly messageQueueService: MessageQueueService,
+    private readonly gradingSystemsService: GradingSystemsService,
   ) {}
 
   async parseFile({ fileId, fileCategory, courseSessionId }: ParseFilePayload) {
@@ -107,7 +109,7 @@ export class FilesService {
           },
         });
 
-        await this.messageQueueService.enqueueEmail({
+        await this.messageQueueService.enqueueSetPasswordEmail({
           isActivateAccount: true,
           tokenPayload: {
             email: createdUser.email,
@@ -151,7 +153,7 @@ export class FilesService {
           },
         });
 
-        await this.messageQueueService.enqueueEmail({
+        await this.messageQueueService.enqueueSetPasswordEmail({
           isActivateAccount: true,
           tokenPayload: {
             email: createdUser.email,
@@ -202,12 +204,28 @@ export class FilesService {
       studentsNotFound: [],
     };
 
+    const { gradingSystemId } =
+      await this.prisma.courseSession.findUniqueOrThrow({
+        where: { id: courseSessionId },
+        select: { gradingSystemId: true },
+      });
+
     for (const { matricNumber, scores } of parsedData.validRows) {
       try {
         const foundStudent = await this.prisma.student.findUniqueOrThrow({
           where: { matricNumber },
           select: { id: true, user: true },
         });
+
+        if (
+          !(await this.gradingSystemsService.validateScores(
+            scores,
+            gradingSystemId,
+          ))
+        ) {
+          throw new Error();
+        }
+
         await this.prisma.enrollment.update({
           where: {
             uniqueEnrollment: { courseSessionId, studentId: foundStudent.id },
@@ -215,7 +233,7 @@ export class FilesService {
           data: { results: { create: { scores, type: ResultType.INITIAL } } },
         });
 
-        await this.messageQueueService.enqueueEmail({
+        await this.messageQueueService.enqueueNotificationEmail({
           subject: EmailSubject.RESULT_UPLOAD,
           email: foundStudent.user.email,
           message: `Your result has been uploaded for the course session ${courseSessionId}.`,

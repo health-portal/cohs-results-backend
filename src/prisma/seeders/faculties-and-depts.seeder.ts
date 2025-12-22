@@ -27,7 +27,7 @@ export const collegeOfHealthSciences: Record<
       maxLevel: Level.LVL_500,
     },
     {
-      name: 'Department of Medical Rehabilitation',
+      name: 'Medical Rehabilitation',
       shortName: 'DMR',
       maxLevel: Level.LVL_600,
     },

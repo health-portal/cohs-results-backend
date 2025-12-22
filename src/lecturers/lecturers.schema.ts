@@ -12,7 +12,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { ParseCsvData } from 'src/lib/csv';
+import { ParseCsvData } from 'src/lib/file-processors';
 
 export class CreateLecturerBody {
   @ApiProperty()

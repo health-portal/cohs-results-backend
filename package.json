@@ -11,7 +11,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:workers": "node dist/workers.js",
-    "start:all": "concurrently \"npm run start\" \"npm run start:workers\"",
+    "start:all": "concurrently \"npm run start:dev\" \"npm run start:workers\"",
     "prebuild": "npm run prisma:generate",
     "postbuild": "npm run prisma:migrate && npm run prisma:seed:prod",
     "prisma:generate": "npx prisma generate",

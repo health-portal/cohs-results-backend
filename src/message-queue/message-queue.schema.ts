@@ -28,12 +28,12 @@ export interface SendEmailPayload {
   content: string;
 }
 
-export class SetPasswordSchema {
+export interface SetPasswordSchema {
   isActivateAccount: boolean;
   tokenPayload: TokenPayload;
 }
 
-export class NotificationSchema {
+export interface NotificationSchema {
   subject: EmailSubject;
   email: string;
   title: string;

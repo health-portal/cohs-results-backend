@@ -5,5 +5,6 @@ import { GradingSystemsController } from './grading-systems.controller';
 @Module({
   controllers: [GradingSystemsController],
   providers: [GradingSystemsService],
+  exports: [GradingSystemsService],
 })
 export class GradingSystemsModule {}
