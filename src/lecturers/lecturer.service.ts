@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { RegisterStudentBody, EditResultBody } from './lecturers.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileCategory, ResultType } from '@prisma/client';
-import { UploadFileBody } from 'src/files/files.schema';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
 @Injectable()
@@ -71,15 +70,16 @@ export class LecturerService {
     userId: string,
     lecturerId: string,
     courseSessionId: string,
-    { filename, content }: UploadFileBody,
+    file: Express.Multer.File,
   ) {
     await this.validateCourseLecturerAccess(lecturerId, userId, true);
     const createdFile = await this.prisma.file.create({
       data: {
-        filename,
-        content: Buffer.from(content, 'utf-8'),
-        category: FileCategory.REGISTRATIONS,
+        filename: file.originalname,
+        buffer: Buffer.from(file.buffer),
         userId,
+        category: FileCategory.REGISTRATIONS,
+        mimetype: file.mimetype,
       },
     });
 
@@ -94,15 +94,16 @@ export class LecturerService {
     userId: string,
     lecturerId: string,
     courseSessionId: string,
-    { filename, content }: UploadFileBody,
+    file: Express.Multer.File,
   ) {
     await this.validateCourseLecturerAccess(lecturerId, userId, true);
     const createdFile = await this.prisma.file.create({
       data: {
-        filename,
-        content: Buffer.from(content, 'utf-8'),
-        category: FileCategory.RESULTS,
+        filename: file.originalname,
+        buffer: Buffer.from(file.buffer),
         userId,
+        category: FileCategory.RESULTS,
+        mimetype: file.mimetype,
       },
     });
 

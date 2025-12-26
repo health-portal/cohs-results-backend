@@ -1,10 +1,12 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { MessageQueueModule } from 'src/message-queue/message-queue.module';
+import { FilesController } from './files.controller';
 
 @Module({
   imports: [forwardRef(() => MessageQueueModule)],
   providers: [FilesService],
   exports: [FilesService],
+  controllers: [FilesController],
 })
 export class FilesModule {}

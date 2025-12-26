@@ -3,7 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -53,9 +55,23 @@ export class LecturersController {
   @Post('batch')
   async uploadFileForLecturers(
     @User('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType:
+            /^(text\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/i,
+          fallbackToMimetype: true,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: Express.Multer.File,
   ) {
-    return await this.lecturersService.uploadFileForLecturers(userId, body);
+    return await this.lecturersService.uploadFileForLecturers(userId, file);
   }
 
   @ApiOperation({ summary: 'Get all lecturers' })

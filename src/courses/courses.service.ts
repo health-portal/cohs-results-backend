@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCourseBody, UpdateCourseBody } from './courses.schema';
-import { UploadFileBody } from 'src/files/files.schema';
 import { FileCategory } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
@@ -32,16 +31,14 @@ export class CoursesService {
     });
   }
 
-  async uploadFileForCourses(
-    userId: string,
-    { filename, content }: UploadFileBody,
-  ) {
+  async uploadFileForCourses(userId: string, file: Express.Multer.File) {
     const createdFile = await this.prisma.file.create({
       data: {
-        filename,
-        content: Buffer.from(content, 'utf-8'),
+        filename: file.originalname,
+        buffer: Buffer.from(file.buffer),
         userId,
         category: FileCategory.COURSES,
+        mimetype: file.mimetype,
       },
     });
 

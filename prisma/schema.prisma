@@ -443,11 +443,13 @@ model File {
     createdAt DateTime  @default(now())
     deletedAt DateTime?
 
-    filename     String
-    content      Bytes
-    isCompressed Boolean      @default(false)
-    category     FileCategory
-    metadata     Json?
+    filename    String
+    description String?
+    buffer      Bytes
+    mimetype    String
+    isProcessed Boolean      @default(false)
+    category    FileCategory
+    metadata        Json?
 
     userId String
     user   User   @relation(fields: [userId], references: [id])

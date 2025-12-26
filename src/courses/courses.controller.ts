@@ -3,7 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   Patch,
   Post,
   UploadedFile,
@@ -31,7 +33,6 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
-import { UploadFileBody } from 'src/files/files.schema';
 
 @ApiTags('Courses', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -55,9 +56,23 @@ export class CoursesController {
   @Post('batch')
   async uploadFileForCourses(
     @User('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType:
+            /^(text\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/i,
+          fallbackToMimetype: true,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: Express.Multer.File,
   ) {
-    return await this.coursesService.uploadFileForCourses(userId, body);
+    return await this.coursesService.uploadFileForCourses(userId, file);
   }
 
   @ApiOperation({ summary: 'Get all courses' })

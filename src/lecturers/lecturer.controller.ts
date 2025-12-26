@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -83,14 +84,28 @@ export class LecturerController {
   async uploadFileForStudentRegistrations(
     @User() user: UserPayload,
     @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType:
+            /^(text\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/i,
+          fallbackToMimetype: true,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: Express.Multer.File,
   ) {
     const lecturerId = this.getLecturerId(user);
     return await this.lecturerService.uploadFileForStudentRegistrations(
       user.sub,
       lecturerId,
       courseSessionId,
-      body,
+      file,
     );
   }
 
@@ -105,7 +120,7 @@ export class LecturerController {
       user.sub,
       lecturerId,
       courseSessionId,
-      body,
+      file,
     );
   }
 
