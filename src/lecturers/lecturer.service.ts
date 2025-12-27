@@ -80,13 +80,12 @@ export class LecturerService {
         userId,
         category: FileCategory.REGISTRATIONS,
         mimetype: file.mimetype,
+        metadata: { courseSessionId },
       },
     });
 
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
-      fileCategory: FileCategory.REGISTRATIONS,
-      courseSessionId,
     });
   }
 
@@ -104,13 +103,12 @@ export class LecturerService {
         userId,
         category: FileCategory.RESULTS,
         mimetype: file.mimetype,
+        metadata: { courseSessionId },
       },
     });
 
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
-      fileCategory: FileCategory.RESULTS,
-      courseSessionId,
     });
   }
 

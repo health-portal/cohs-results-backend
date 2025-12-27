@@ -1,4 +1,3 @@
-import { FileCategory } from '@prisma/client';
 import { TokenPayload } from 'src/auth/auth.schema';
 import { env } from 'src/lib/environment';
 
@@ -9,8 +8,6 @@ export enum QueueTable {
 // Files
 export interface ParseFilePayload {
   fileId: string;
-  fileCategory: FileCategory;
-  courseSessionId?: string;
 }
 
 // Emails

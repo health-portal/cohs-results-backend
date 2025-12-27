@@ -60,7 +60,6 @@ export class LecturersService {
 
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
-      fileCategory: FileCategory.LECTURERS,
     });
   }
 

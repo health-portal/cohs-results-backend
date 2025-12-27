@@ -1,5 +1,4 @@
 import {
-    BadRequestException,
   forwardRef,
   Inject,
   Injectable,
@@ -10,6 +9,11 @@ import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { ParseCsvData, RowValidationError } from './files.schema';
+import { ParseFilePayload } from 'src/message-queue/message-queue.schema';
+import { FileCategory } from '@prisma/client';
 
 @Injectable()
 export class FilesService {
@@ -24,6 +28,41 @@ export class FilesService {
     return await this.prisma.file.findMany({
       where: { userId },
     });
+  }
+
+  async parseFile(payload: ParseFilePayload) {
+    const { fileId } = payload;
+    try {
+      const foundFile = await this.prisma.file.findUniqueOrThrow({
+        where: { id: fileId },
+      });
+      const csvContent = this.normalizeToCsv(
+        Buffer.from(foundFile.buffer),
+        foundFile.mimetype,
+      );
+
+      switch (foundFile.category) {
+        case FileCategory.COURSES: {
+          break;
+        }
+        case FileCategory.LECTURERS: {
+          break;
+        }
+        case FileCategory.REGISTRATIONS: {
+          break;
+        }
+        case FileCategory.RESULTS: {
+          break;
+        }
+        case FileCategory.STUDENTS: {
+          break;
+        }
+        default:
+          break;
+      }
+    } catch {
+      throw new Error('File not found');
+    }
   }
 
   private normalizeToCsv(buffer: Buffer, mimetype: string) {
@@ -52,12 +91,51 @@ export class FilesService {
     }
   }
 
-  private validateHeaders(csvContent: string, expectedHeaders: string[]) {
-    const result = Papa.parse(csvContent, { preview: 1, skipEmptyLines: true });
-    const headers = Object.keys(result.meta.fields);
-    if (!headers.every((h, i) => h === expectedHeaders[i])) {
-      throw new BadRequestException('Invalid headers');
+  private parseCsv<T extends object>(
+    csvContent: string,
+    validationClass: new () => T,
+    headerMappings: Record<string, string>,
+    altHeaderMappings?: Record<string, string>,
+  ): ParseCsvData<T> {
+    const result = Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => {
+        return headerMappings[header] || altHeaderMappings?.[header] || header;
+      },
+    });
+
+    const headers = result.meta.fields;
+
+    const headersSet = new Set(headers);
+    const expectedHeadersSet = new Set(Object.values(headerMappings));
+
+    if (headers?.length !== expectedHeadersSet.size) {
+      throw new Error('Invalid headers');
     }
-    return headers;
+
+    for (const header of expectedHeadersSet) {
+      if (!headersSet.has(header)) throw new Error('Invalid headers');
+    }
+
+    const validRows: T[] = [];
+    const invalidRows: RowValidationError[] = [];
+
+    result.data.map((row, index) => {
+      const rowInstance = plainToInstance(validationClass, row);
+      const errors = validateSync(rowInstance);
+      if (errors.length > 0) {
+        invalidRows.push({
+          row: index + 1,
+          errorMessages: errors.map((error) => error.toString()),
+        });
+      } else {
+        validRows.push(rowInstance);
+      }
+    });
+
+    return { validRows, invalidRows, numberOfRows: result.data.length };
   }
+
+  async createCourses() {}
 }

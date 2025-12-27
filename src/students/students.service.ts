@@ -66,7 +66,6 @@ export class StudentsService {
 
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
-      fileCategory: createdFile.category,
     });
   }
 

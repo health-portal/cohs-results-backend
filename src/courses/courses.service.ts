@@ -44,7 +44,6 @@ export class CoursesService {
 
     const job = await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
-      fileCategory: FileCategory.COURSES,
     });
 
     return job;

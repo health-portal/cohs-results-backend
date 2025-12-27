@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { Semester } from '@prisma/client';
 import { DepartmentRes } from 'src/college/college.schema';
-import { ParseCsvData } from 'src/lib/csv';
+import { ParseCsvData } from 'src/files/files.schema';
 
 export class CreateCourseBody {
   @ApiProperty()

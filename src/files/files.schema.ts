@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { FileCategory, FileStatus } from '@prisma/client';
+import { FileCategory } from '@prisma/client';
 
 export class RowValidationError {
   @ApiProperty()
   row: number;
 
-  @ApiProperty()
-  errorMessage: string;
+  @ApiProperty({ type: [String] })
+  errorMessages: string[];
 }
 
 export class ParseCsvData<T extends object> {
@@ -29,9 +29,6 @@ export class FileRes {
 
   @ApiProperty({ nullable: true })
   mimetype: string | null;
-
-  @ApiProperty({ enum: FileStatus, nullable: true })
-  status: FileStatus | null;
 
   @ApiProperty({ enum: FileCategory, nullable: true })
   category: FileCategory | null;

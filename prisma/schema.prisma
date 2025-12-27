@@ -449,7 +449,7 @@ model File {
     mimetype    String
     isProcessed Boolean      @default(false)
     category    FileCategory
-    metadata        Json?
+    metadata    Json?
 
     userId String
     user   User   @relation(fields: [userId], references: [id])
