@@ -48,6 +48,11 @@ export class ParseCsvData<T extends object> {
   invalidRows: RowValidationError[];
 }
 
+export class ProvideAltHeaderMappingsBody {
+  @ApiProperty({ type: [Object] })
+  altHeaderMappings: Record<string, string>;
+}
+
 export class FileRes {
   @ApiProperty({ nullable: true })
   description: string | null;

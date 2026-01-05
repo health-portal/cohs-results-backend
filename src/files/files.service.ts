@@ -16,6 +16,7 @@ import {
   FileErrorMessage,
   FileMetadata,
   ParseCsvData,
+  ProvideAltHeaderMappingsBody,
   RowValidationError,
 } from './files.schema';
 import { ParseFilePayload } from 'src/message-queue/message-queue.schema';
@@ -45,6 +46,26 @@ export class FilesService {
 
   async getFiles(userId: string) {
     return this.prisma.file.findMany({ where: { userId } });
+  }
+
+  async provideAltHeaderMappings(
+    userId: string,
+    fileId: string,
+    body: ProvideAltHeaderMappingsBody,
+  ) {
+    const foundFile = await this.prisma.file.findUniqueOrThrow({
+      where: { id: fileId, userId },
+    });
+
+    await this.prisma.file.update({
+      where: { id: fileId, userId },
+      data: {
+        metadata: JSON.stringify({
+          altHeaderMappings: body.altHeaderMappings,
+          ...(foundFile.metadata as FileMetadata),
+        }),
+      },
+    });
   }
 
   async parseFile(payload: ParseFilePayload) {
