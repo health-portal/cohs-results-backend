@@ -2,140 +2,469 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
-import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { FileCategory, ResultType, UserRole } from '@prisma/client';
 import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { ParseCsvData, RowValidationError } from './files.schema';
+import {
+  FileErrorMessage,
+  FileMetadata,
+  ParseCsvData,
+  RowValidationError,
+} from './files.schema';
 import { ParseFilePayload } from 'src/message-queue/message-queue.schema';
-import { FileCategory } from '@prisma/client';
+import { CreateCourseBody, CreateCoursesRes } from 'src/courses/courses.schema';
+import {
+  CreateLecturerBody,
+  CreateLecturersRes,
+  RegisterStudentBody,
+  RegisterStudentsRes,
+  UploadResultRow,
+  UploadResultsRes,
+} from 'src/lecturers/lecturers.schema';
+import {
+  CreateStudentBody,
+  CreateStudentsRes,
+} from 'src/students/students.schema';
 
 @Injectable()
 export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => MessageQueueService))
     private readonly messageQueueService: MessageQueueService,
-    private readonly gradingSystemsService: GradingSystemsService,
   ) {}
 
   async getFiles(userId: string) {
-    return await this.prisma.file.findMany({
-      where: { userId },
-    });
+    return this.prisma.file.findMany({ where: { userId } });
   }
 
   async parseFile(payload: ParseFilePayload) {
     const { fileId } = payload;
+
+    const foundFile = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+    if (!foundFile) return;
+
+    const metadata = (foundFile.metadata as FileMetadata) ?? {};
+
     try {
-      const foundFile = await this.prisma.file.findUniqueOrThrow({
-        where: { id: fileId },
-      });
-      const csvContent = this.normalizeToCsv(
+      const csvContents = this.normalizeToCsv(
         Buffer.from(foundFile.buffer),
         foundFile.mimetype,
       );
 
-      switch (foundFile.category) {
-        case FileCategory.COURSES: {
-          break;
+      const responses: unknown[] = [];
+
+      for (const csvContent of csvContents) {
+        switch (foundFile.category) {
+          case FileCategory.COURSES:
+            responses.push(await this.handleCourses(csvContent, metadata));
+            break;
+
+          case FileCategory.LECTURERS:
+            responses.push(await this.handleLecturers(csvContent, metadata));
+            break;
+
+          case FileCategory.STUDENTS:
+            responses.push(await this.handleStudents(csvContent));
+            break;
+
+          case FileCategory.RESULTS:
+            responses.push(await this.handleResults(csvContent, metadata));
+            break;
+
+          case FileCategory.REGISTRATIONS:
+            responses.push(
+              await this.handleRegistrations(csvContent, metadata),
+            );
+            break;
+
+          default:
+            throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
         }
-        case FileCategory.LECTURERS: {
-          break;
-        }
-        case FileCategory.REGISTRATIONS: {
-          break;
-        }
-        case FileCategory.RESULTS: {
-          break;
-        }
-        case FileCategory.STUDENTS: {
-          break;
-        }
-        default:
-          break;
       }
-    } catch {
-      throw new Error('File not found');
+
+      await this.prisma.file.update({
+        where: { id: foundFile.id },
+        data: {
+          isProcessed: true,
+          metadata: JSON.stringify({
+            ...metadata,
+            responses,
+          }),
+        },
+      });
+    } catch (error) {
+      await this.prisma.file.update({
+        where: { id: foundFile.id },
+        data: {
+          metadata: JSON.stringify({
+            ...metadata,
+            error: error.message,
+          }),
+        },
+      });
     }
   }
 
-  private normalizeToCsv(buffer: Buffer, mimetype: string) {
-    switch (mimetype) {
-      case 'text/csv':
-      case 'application/csv':
-      case 'text/plain':
-        return buffer.toString('utf-8');
+  private async handleCourses(
+    csv: string,
+    metadata: FileMetadata,
+  ): Promise<CreateCoursesRes> {
+    const headerMappings = await this.getHeaderMappings(FileCategory.COURSES);
 
-      case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-      case 'application/xlsx':
-      case 'application/vnd.ms-excel':
-      case 'application/xls':
-      case 'application/x-excel':
-      case 'application/vnd.ms-excel.sheet.binary.macroenabled.12':
-      case 'application/vnd.oasis.opendocument.spreadsheet': {
-        const workbook = xlsx.read(buffer, { type: 'buffer' });
-        return workbook.SheetNames.map((sheetName) => {
-          const sheet = workbook.Sheets[sheetName];
-          return xlsx.utils.sheet_to_csv(sheet);
+    const parsed = this.parseCsv(
+      csv,
+      CreateCourseBody,
+      headerMappings,
+      metadata.altHeaderMappings,
+    );
+
+    const res: CreateCoursesRes = { courses: [], ...parsed };
+
+    for (const row of parsed.validRows) {
+      try {
+        await this.prisma.course.create({
+          data: {
+            code: row.code,
+            title: row.title,
+            description: row.description,
+            department: { connect: { name: row.department } },
+            semester: row.semester,
+            units: row.units,
+          },
         });
+        res.courses.push({ ...row, isCreated: true });
+      } catch {
+        res.courses.push({ ...row, isCreated: false });
       }
-
-      default:
-        throw new UnprocessableEntityException('Unsupported file type');
     }
+
+    return res;
+  }
+
+  private async handleLecturers(
+    csv: string,
+    metadata: FileMetadata,
+  ): Promise<CreateLecturersRes> {
+    const headerMappings = await this.getHeaderMappings(FileCategory.LECTURERS);
+
+    const parsed = this.parseCsv(
+      csv,
+      CreateLecturerBody,
+      headerMappings,
+      metadata.altHeaderMappings,
+    );
+
+    const res: CreateLecturersRes = { lecturers: [], ...parsed };
+
+    for (const row of parsed.validRows) {
+      try {
+        const user = await this.prisma.user.create({
+          data: {
+            email: row.email,
+            role: UserRole.LECTURER,
+            lecturer: {
+              create: {
+                firstName: row.firstName,
+                lastName: row.lastName,
+                otherName: row.otherName,
+                phone: row.phone,
+                title: row.title,
+                department: { connect: { name: row.department } },
+              },
+            },
+          },
+        });
+
+        await this.messageQueueService.enqueueSetPasswordEmail({
+          isActivateAccount: true,
+          tokenPayload: {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+
+        res.lecturers.push({ ...row, isCreated: true });
+      } catch {
+        res.lecturers.push({ ...row, isCreated: false });
+      }
+    }
+
+    return res;
+  }
+
+  private async handleStudents(csv: string): Promise<CreateStudentsRes> {
+    const headerMappings = await this.getHeaderMappings(FileCategory.STUDENTS);
+
+    const parsed = this.parseCsv(csv, CreateStudentBody, headerMappings);
+
+    const res: CreateStudentsRes = { students: [], ...parsed };
+
+    for (const row of parsed.validRows) {
+      try {
+        const user = await this.prisma.user.create({
+          data: {
+            email: row.email,
+            role: UserRole.STUDENT,
+            student: {
+              create: {
+                firstName: row.firstName,
+                lastName: row.lastName,
+                otherName: row.otherName,
+                matricNumber: row.matricNumber,
+                admissionYear: row.admissionYear,
+                department: { connect: { name: row.department } },
+                degree: row.degree,
+                level: row.level,
+                gender: row.gender,
+              },
+            },
+          },
+        });
+
+        await this.messageQueueService.enqueueSetPasswordEmail({
+          isActivateAccount: true,
+          tokenPayload: {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+
+        res.students.push({ ...row, isCreated: true });
+      } catch {
+        res.students.push({ ...row, isCreated: false });
+      }
+    }
+
+    return res;
+  }
+
+  private async handleResults(
+    csv: string,
+    metadata: FileMetadata,
+  ): Promise<UploadResultsRes> {
+    if (!metadata.courseSessionId)
+      throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
+
+    const headerMappings = await this.getHeaderMappings(
+      FileCategory.RESULTS,
+      metadata.courseSessionId,
+    );
+
+    const parsed = this.parseCsv(csv, UploadResultRow, headerMappings);
+
+    const res: UploadResultsRes = {
+      studentsUploadedFor: [],
+      studentsNotFound: [],
+      ...parsed,
+    };
+
+    for (const row of parsed.validRows) {
+      try {
+        const student = await this.prisma.student.findUniqueOrThrow({
+          where: { matricNumber: row.matricNumber },
+          select: { id: true, user: true },
+        });
+
+        await this.prisma.enrollment.update({
+          where: {
+            uniqueEnrollment: {
+              studentId: student.id,
+              courseSessionId: metadata.courseSessionId,
+            },
+          },
+          data: {
+            results: {
+              create: {
+                scores: row.scores,
+                type: ResultType.INITIAL,
+              },
+            },
+          },
+        });
+
+        res.studentsUploadedFor.push(row.matricNumber);
+      } catch {
+        res.studentsNotFound.push(row.matricNumber);
+      }
+    }
+
+    return res;
+  }
+
+  private async handleRegistrations(
+    csv: string,
+    metadata: FileMetadata,
+  ): Promise<RegisterStudentsRes> {
+    if (!metadata.courseSessionId)
+      throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
+
+    const headerMappings = await this.getHeaderMappings(
+      FileCategory.REGISTRATIONS,
+    );
+
+    const parsed = this.parseCsv(
+      csv,
+      RegisterStudentBody,
+      headerMappings,
+      metadata.altHeaderMappings,
+    );
+
+    const res: RegisterStudentsRes = {
+      registeredStudents: [],
+      unregisteredStudents: [],
+      ...parsed,
+    };
+
+    for (const row of parsed.validRows) {
+      try {
+        await this.prisma.courseSession.update({
+          where: { id: metadata.courseSessionId },
+          data: {
+            enrollments: {
+              create: {
+                student: {
+                  connect: { matricNumber: row.matricNumber },
+                },
+              },
+            },
+          },
+        });
+
+        res.registeredStudents.push(row.matricNumber);
+      } catch {
+        res.unregisteredStudents.push(row.matricNumber);
+      }
+    }
+
+    return res;
+  }
+
+  private normalizeToCsv(buffer: Buffer, mimetype: string): string[] {
+    if (mimetype.includes('csv') || mimetype === 'text/plain') {
+      return [buffer.toString('utf-8')];
+    }
+
+    if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
+      const workbook = xlsx.read(buffer, { type: 'buffer' });
+      return workbook.SheetNames.map((name) =>
+        xlsx.utils.sheet_to_csv(workbook.Sheets[name]),
+      );
+    }
+
+    throw new UnprocessableEntityException(FileErrorMessage.INVALID_FILE_TYPE);
   }
 
   private parseCsv<T extends object>(
-    csvContent: string,
-    validationClass: new () => T,
+    csv: string,
+    cls: new () => T,
     headerMappings: Record<string, string>,
     altHeaderMappings?: Record<string, string>,
   ): ParseCsvData<T> {
-    const result = Papa.parse(csvContent, {
+    const effectiveHeaders = altHeaderMappings ?? headerMappings;
+
+    const parsed = Papa.parse(csv, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header) => {
-        return headerMappings[header] || altHeaderMappings?.[header] || header;
-      },
+      transformHeader: (h) => effectiveHeaders[h] ?? h,
     });
-
-    const headers = result.meta.fields;
-
-    const headersSet = new Set(headers);
-    const expectedHeadersSet = new Set(Object.values(headerMappings));
-
-    if (headers?.length !== expectedHeadersSet.size) {
-      throw new Error('Invalid headers');
-    }
-
-    for (const header of expectedHeadersSet) {
-      if (!headersSet.has(header)) throw new Error('Invalid headers');
-    }
 
     const validRows: T[] = [];
     const invalidRows: RowValidationError[] = [];
 
-    result.data.map((row, index) => {
-      const rowInstance = plainToInstance(validationClass, row);
-      const errors = validateSync(rowInstance);
-      if (errors.length > 0) {
+    parsed.data.forEach((row, index) => {
+      const instance = plainToInstance(cls, row);
+      const errors = validateSync(instance);
+
+      if (errors.length) {
         invalidRows.push({
           row: index + 1,
-          errorMessages: errors.map((error) => error.toString()),
+          errorMessages: errors.map((e) => e.toString()),
         });
       } else {
-        validRows.push(rowInstance);
+        validRows.push(instance);
       }
     });
 
-    return { validRows, invalidRows, numberOfRows: result.data.length };
+    return {
+      numberOfRows: parsed.data.length,
+      validRows,
+      invalidRows,
+    };
   }
 
-  async createCourses() {}
+  async getHeaderMappings(
+    category: FileCategory,
+    courseSessionId?: string,
+  ): Promise<Record<string, string>> {
+    switch (category) {
+      case FileCategory.COURSES:
+        return {
+          'Course Code': 'code',
+          'Course Title': 'title',
+          'Course Description': 'description',
+          Department: 'department',
+          Semester: 'semester',
+          Units: 'units',
+        };
+
+      case FileCategory.LECTURERS:
+        return {
+          'First Name': 'firstName',
+          'Last Name': 'lastName',
+          'Other Name': 'otherName',
+          Email: 'email',
+          Phone: 'phone',
+          Department: 'department',
+          Title: 'title',
+        };
+
+      case FileCategory.STUDENTS:
+        return {
+          'First Name': 'firstName',
+          'Last Name': 'lastName',
+          'Other Name': 'otherName',
+          Email: 'email',
+          'Matriculation Number': 'matricNumber',
+          Department: 'department',
+          Degree: 'degree',
+          Level: 'level',
+          'Admission Year': 'admissionYear',
+          Gender: 'gender',
+        };
+
+      case FileCategory.REGISTRATIONS:
+        return {
+          'Matriculation Number': 'matricNumber',
+        };
+
+      case FileCategory.RESULTS: {
+        const cs = await this.prisma.courseSession.findUniqueOrThrow({
+          where: { id: courseSessionId },
+        });
+
+        const fields = await this.prisma.gradingField.findMany({
+          where: { gradingSystemId: cs.gradingSystemId },
+        });
+
+        return Object.fromEntries(fields.map((f) => [f.label, f.variable]));
+      }
+
+      default:
+        throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
+    }
+  }
 }
