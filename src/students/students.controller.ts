@@ -52,6 +52,7 @@ export class StudentsController {
     return await this.studentsService.createStudent(body);
   }
 
+  @ApiOperation({ summary: 'Create students via a file' })
   @Post('batch')
   async uploadFileForStudents(
     @User('sub') userId: string,

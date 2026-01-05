@@ -52,6 +52,7 @@ export class LecturersController {
     return await this.lecturersService.createLecturer(body);
   }
 
+  @ApiOperation({ summary: 'Create lecturers via a file' })
   @Post('batch')
   async uploadFileForLecturers(
     @User('sub') userId: string,
