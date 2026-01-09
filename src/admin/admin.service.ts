@@ -51,7 +51,7 @@ export class AdminService {
 
   async getProfile(adminId: string) {
     const foundAdmin = await this.prisma.admin.findUniqueOrThrow({
-      where: { userId: adminId },
+      where: { id: adminId },
       select: {
         id: true,
         name: true,
@@ -68,10 +68,10 @@ export class AdminService {
     };
   }
 
-  async updateProfile(adminId: string, { name, phone }: UpdateAdminBody) {
-    const foundAdmin = await this.prisma.admin.update({
-      data: { name, phone },
-      where: { userId: adminId },
+  async updateProfile(adminId: string, body: UpdateAdminBody) {
+    const updatedAdmin = await this.prisma.admin.update({
+      data: { name: body.name, phone: body.phone },
+      where: { id: adminId },
       select: {
         id: true,
         name: true,
@@ -81,10 +81,10 @@ export class AdminService {
     });
 
     return {
-      id: foundAdmin.id,
-      name: foundAdmin.name,
-      phone: foundAdmin.phone,
-      email: foundAdmin.user.email,
+      id: updatedAdmin.id,
+      name: updatedAdmin.name,
+      phone: updatedAdmin.phone,
+      email: updatedAdmin.user.email,
     };
   }
 }

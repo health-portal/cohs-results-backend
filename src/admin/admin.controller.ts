@@ -1,13 +1,10 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { User } from 'src/auth/user.decorator';
-import {
-  type AddAdminBody,
-  AdminProfileRes,
-  type UpdateAdminBody,
-} from './admin.schema';
+import { AddAdminBody, AdminProfileRes, UpdateAdminBody } from './admin.schema';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
@@ -28,6 +25,7 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @ApiOperation({ summary: 'Invite an admin' })
+  @ApiBody({ type: AddAdminBody })
   @ApiCreatedResponse({ description: 'Admin added successfully' })
   @ApiConflictResponse({ description: 'User already exists' })
   @Post()
@@ -45,11 +43,13 @@ export class AdminController {
   @ApiOperation({ summary: 'Get admin profile' })
   @ApiOkResponse({ type: AdminProfileRes })
   @Get('profile')
-  async getProfile(@User('id') adminId: string) {
+  async getProfile(@User() user: UserPayload) {
+    const { adminId } = user.userData as AdminData;
     return await this.adminService.getProfile(adminId);
   }
 
   @ApiOperation({ summary: 'Update admin profile' })
+  @ApiBody({ type: UpdateAdminBody })
   @ApiOkResponse({ type: AdminProfileRes })
   @Patch('profile')
   async updateProfile(

@@ -32,7 +32,7 @@ export class CreateDepartmentBody {
   @IsUUID()
   facultyId: string;
 
-  @ApiProperty()
+  @ApiProperty({ enum: Level })
   @IsEnum(Level)
   maxLevel: Level;
 }

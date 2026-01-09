@@ -10,8 +10,8 @@ import {
 } from '@nestjs/common';
 import { CollegeService } from './college.service';
 import {
-  type CreateDepartmentBody,
-  type CreateFacultyBody,
+  CreateDepartmentBody,
+  CreateFacultyBody,
   DepartmentRes,
   FacultyRes,
 } from './college.schema';
@@ -20,6 +20,7 @@ import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -51,6 +52,7 @@ export class CollegeController {
   }
 
   @ApiOperation({ summary: 'Create a new faculty' })
+  @ApiBody({ type: CreateFacultyBody })
   @ApiCreatedResponse({ description: 'Faculty created successfully' })
   @ApiConflictResponse({ description: 'Faculty already exists' })
   @Post('faculties')
@@ -67,6 +69,7 @@ export class CollegeController {
   }
 
   @ApiOperation({ summary: 'Create a new department' })
+  @ApiBody({ type: CreateDepartmentBody })
   @ApiCreatedResponse({ description: 'Department created successfully' })
   @ApiConflictResponse({ description: 'Department already exists' })
   @Post('departments')
