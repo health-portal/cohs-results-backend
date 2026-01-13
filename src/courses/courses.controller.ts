@@ -10,6 +10,7 @@ import {
   Post,
   UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import {
@@ -22,6 +23,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -33,6 +35,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Courses', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -53,6 +56,19 @@ export class CoursesController {
   }
 
   @ApiOperation({ summary: 'Create multiple courses from a file' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @Post('batch')
   async uploadFileForCourses(
     @User('sub') userId: string,

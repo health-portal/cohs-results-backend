@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 import { Semester } from '@prisma/client';
 import { DepartmentRes } from 'src/college/college.schema';
@@ -34,6 +35,7 @@ export class CreateCourseBody {
 
   @ApiProperty()
   @IsNumber()
+  @Min(1)
   @Transform(({ value }: { value: string }) => parseInt(value, 10), {
     toClassOnly: true,
   })
