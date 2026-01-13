@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateStudentBody, UpdateStudentBody } from './students.schema';
+import {
+  CreateStudentBody,
+  StudentProfileRes,
+  UpdateStudentBody,
+} from './students.schema';
 import { FileCategory, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
@@ -69,7 +73,7 @@ export class StudentsService {
     });
   }
 
-  async getStudents() {
+  async getStudents(): Promise<StudentProfileRes[]> {
     const foundStudents = await this.prisma.student.findMany({
       select: {
         id: true,
@@ -104,7 +108,7 @@ export class StudentsService {
     }));
   }
 
-  async getStudent(studentId: string) {
+  async getStudent(studentId: string): Promise<StudentProfileRes> {
     const foundStudent = await this.prisma.student.findUniqueOrThrow({
       where: { id: studentId, deletedAt: null },
       select: {

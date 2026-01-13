@@ -23,11 +23,14 @@ export class CreateSessionBody {
   endDate: Date;
 }
 
-export class AssignCoursesToSessionBody {
+export class AssignCourseToSessionBody {
   @ApiProperty()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  courseIds: string[];
+  @IsUUID('4')
+  courseId: string;
+
+  @ApiProperty()
+  @IsUUID('4')
+  gradingSystemId: string;
 }
 
 export class AssignLecturersBody {
@@ -71,4 +74,24 @@ export class SessionRes {
 
   @ApiProperty({ type: 'string', format: 'date-time' })
   endDate: Date;
+}
+
+export class CourseSessionRes {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  createdAt: Date;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  updatedAt: Date;
+
+  @ApiProperty()
+  courseId: string;
+
+  @ApiProperty()
+  sessionId: string;
+
+  @ApiProperty()
+  gradingSystemId: string;
 }

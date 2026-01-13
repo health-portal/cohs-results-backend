@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { FileCategory } from '@prisma/client';
+import { UserRes } from 'src/auth/auth.schema';
 import { CreateCoursesRes } from 'src/courses/courses.schema';
 import {
   CreateLecturersRes,
@@ -58,19 +59,13 @@ export class FileRes {
   description: string | null;
 
   @ApiProperty({ nullable: true })
-  buffer: Buffer | null;
-
-  @ApiProperty({ nullable: true })
   mimetype: string | null;
 
-  @ApiProperty({ enum: FileCategory, nullable: true })
-  category: FileCategory | null;
+  @ApiProperty({ enum: FileCategory })
+  category: FileCategory;
 
   @ApiProperty({ nullable: true })
   metadata: object | null;
-
-  @ApiProperty({ nullable: true })
-  userId: string | null;
 
   @ApiProperty({ nullable: true })
   id: string | null;
@@ -79,11 +74,8 @@ export class FileRes {
   createdAt: Date | null;
 
   @ApiProperty({ nullable: true })
-  updatedAt: Date | null;
-
-  @ApiProperty({ nullable: true })
-  deletedAt: Date | null;
-
-  @ApiProperty({ nullable: true })
   filename: string | null;
+
+  @ApiProperty({ type: UserRes })
+  user: UserRes;
 }

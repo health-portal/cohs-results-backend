@@ -5,11 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
-  AssignCoursesToSessionBody,
+  AssignCourseToSessionBody,
   AssignDeptAndLevelBody,
   AssignLecturersBody,
+  CourseSessionRes,
   CreateSessionBody,
+  DeptAndLevelRes,
 } from './sessions.schema';
+import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
 
 @Injectable()
 export class SessionsService {
@@ -64,30 +67,28 @@ export class SessionsService {
 
   async assignCoursesToSession(
     sessionId: string,
-    { courseIds }: AssignCoursesToSessionBody,
+    body: AssignCourseToSessionBody[],
   ) {
     await this.prisma.courseSession.createMany({
-      data: courseIds.map((courseId) => ({
+      data: body.map(({ courseId, gradingSystemId }) => ({
         sessionId,
         courseId,
-        // TODO: Implement grading system
-        gradingSystemId: 'GRADING SYSTEM ID',
+        gradingSystemId,
       })),
       skipDuplicates: true,
     });
   }
 
-  async getCoursesInSession(sessionId: string) {
-    return await this.prisma.course.findMany({
-      where: { courseSessions: { every: { sessionId } } },
+  async getCoursesInSession(sessionId: string): Promise<CourseSessionRes[]> {
+    return await this.prisma.courseSession.findMany({
+      where: { sessionId },
       select: {
         id: true,
-        code: true,
-        title: true,
-        description: true,
-        semester: true,
-        units: true,
-        department: { select: { id: true, name: true, shortName: true } },
+        createdAt: true,
+        updatedAt: true,
+        courseId: true,
+        sessionId: true,
+        gradingSystemId: true,
       },
     });
   }
@@ -97,9 +98,8 @@ export class SessionsService {
     courseId: string,
     body: AssignLecturersBody,
   ) {
-    if (!body.lecturerIds.includes(body.coordinatorId)) {
+    if (!body.lecturerIds.includes(body.coordinatorId))
       throw new BadRequestException('Coordinator not included in lecturers');
-    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.courseLecturer.deleteMany({
@@ -122,7 +122,10 @@ export class SessionsService {
     });
   }
 
-  async getCourseLecturers(sessionId: string, courseId: string) {
+  async getCourseLecturers(
+    sessionId: string,
+    courseId: string,
+  ): Promise<LecturerProfileRes[]> {
     const foundCourseLecturers = await this.prisma.courseLecturer.findMany({
       where: { courseSession: { courseId, sessionId } },
       select: {
@@ -180,11 +183,22 @@ export class SessionsService {
     });
   }
 
-  async getDeptsAndLevelsForCourse(sessionId: string, courseId: string) {
+  async getDeptsAndLevelsForCourse(
+    sessionId: string,
+    courseId: string,
+  ): Promise<DeptAndLevelRes[]> {
     return await this.prisma.courseSesnDeptAndLevel.findMany({
       where: { courseSession: { courseId, sessionId } },
       select: {
-        department: { select: { id: true, name: true, shortName: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            maxLevel: true,
+            faculty: { select: { id: true, name: true } },
+          },
+        },
         level: true,
       },
     });

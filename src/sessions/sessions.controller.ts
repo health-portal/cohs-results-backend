@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import {
-  type AssignCoursesToSessionBody,
+  AssignCourseToSessionBody,
   type AssignDeptAndLevelBody,
   type AssignLecturersBody,
   type CreateSessionBody,
@@ -11,6 +11,7 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -56,12 +57,13 @@ export class SessionsController {
   }
 
   @ApiOperation({ summary: 'Assign courses to a session' })
+  @ApiBody({ type: [AssignCourseToSessionBody] })
   @ApiCreatedResponse({ description: 'Courses assigned successfully' })
   @ApiNotFoundResponse({ description: 'Session not found' })
   @Post(':sessionId/courses')
   async assignCoursesToSession(
     @Param('sessionId') sessionId: string,
-    @Body() body: AssignCoursesToSessionBody,
+    @Body() body: AssignCourseToSessionBody[],
   ) {
     return await this.sessionsService.assignCoursesToSession(sessionId, body);
   }

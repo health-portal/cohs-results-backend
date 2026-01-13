@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender, Level } from '@prisma/client';
+import { Gender, Level, StudentStatus } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,
@@ -124,8 +124,8 @@ export class StudentProfileRes {
   @ApiProperty()
   lastName: string;
 
-  @ApiProperty()
-  otherName: string;
+  @ApiProperty({ nullable: true })
+  otherName: string | null;
 
   @ApiProperty()
   department: string;
@@ -141,4 +141,7 @@ export class StudentProfileRes {
 
   @ApiProperty()
   degree: string;
+
+  @ApiProperty({ enum: StudentStatus })
+  status: StudentStatus;
 }

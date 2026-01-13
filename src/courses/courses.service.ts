@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateCourseBody, UpdateCourseBody } from './courses.schema';
+import {
+  CourseRes,
+  CreateCourseBody,
+  UpdateCourseBody,
+} from './courses.schema';
 import { FileCategory } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
@@ -42,14 +46,12 @@ export class CoursesService {
       },
     });
 
-    const job = await this.messageQueueService.enqueueFile({
+    await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
     });
-
-    return job;
   }
 
-  async getCourses() {
+  async getCourses(): Promise<CourseRes[]> {
     return await this.prisma.course.findMany({
       where: { deletedAt: null },
       select: {
@@ -59,12 +61,20 @@ export class CoursesService {
         description: true,
         semester: true,
         units: true,
-        department: { select: { id: true, name: true, shortName: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            maxLevel: true,
+            faculty: { select: { id: true, name: true } },
+          },
+        },
       },
     });
   }
 
-  async getCourse(courseId: string) {
+  async getCourse(courseId: string): Promise<CourseRes> {
     return await this.prisma.course.findUniqueOrThrow({
       where: { id: courseId },
       select: {
@@ -74,7 +84,15 @@ export class CoursesService {
         description: true,
         semester: true,
         units: true,
-        department: { select: { id: true, name: true, shortName: true } },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            maxLevel: true,
+            faculty: { select: { id: true, name: true } },
+          },
+        },
       },
     });
   }

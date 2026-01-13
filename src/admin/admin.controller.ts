@@ -50,7 +50,7 @@ export class AdminController {
 
   @ApiOperation({ summary: 'Update admin profile' })
   @ApiBody({ type: UpdateAdminBody })
-  @ApiOkResponse({ type: AdminProfileRes })
+  @ApiOkResponse({ description: 'Admin profile updated successfully' })
   @Patch('profile')
   async updateProfile(
     @User() user: UserPayload,

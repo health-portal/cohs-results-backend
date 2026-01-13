@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AddAdminBody, UpdateAdminBody } from './admin.schema';
+import { AddAdminBody, AdminProfileRes, UpdateAdminBody } from './admin.schema';
 import { UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
@@ -30,7 +30,7 @@ export class AdminService {
     });
   }
 
-  async getAdmins() {
+  async getAdmins(): Promise<AdminProfileRes[]> {
     const foundAdmins = await this.prisma.admin.findMany({
       select: {
         id: true,
@@ -49,7 +49,7 @@ export class AdminService {
     }));
   }
 
-  async getProfile(adminId: string) {
+  async getProfile(adminId: string): Promise<AdminProfileRes> {
     const foundAdmin = await this.prisma.admin.findUniqueOrThrow({
       where: { id: adminId },
       select: {
@@ -69,7 +69,7 @@ export class AdminService {
   }
 
   async updateProfile(adminId: string, body: UpdateAdminBody) {
-    const updatedAdmin = await this.prisma.admin.update({
+    await this.prisma.admin.update({
       data: { name: body.name, phone: body.phone },
       where: { id: adminId },
       select: {
@@ -79,12 +79,5 @@ export class AdminService {
         user: { select: { email: true } },
       },
     });
-
-    return {
-      id: updatedAdmin.id,
-      name: updatedAdmin.name,
-      phone: updatedAdmin.phone,
-      email: updatedAdmin.user.email,
-    };
   }
 }

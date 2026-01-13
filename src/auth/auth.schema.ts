@@ -91,6 +91,17 @@ export class ChangePasswordBody {
   newPassword: string;
 }
 
+export class UserRes {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty({ enum: UserRole })
+  role: UserRole;
+}
+
 export class SetPasswordRes {
   @ApiProperty()
   id: string;

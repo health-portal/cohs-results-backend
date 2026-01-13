@@ -11,6 +11,8 @@ import {
   RequestPasswordResetBody,
   SigninUserBody,
   UserData,
+  SigninUserRes,
+  UserRes,
 } from './auth.schema';
 import * as argon2 from 'argon2';
 import { isEmail } from 'class-validator';
@@ -53,7 +55,7 @@ export class AuthService {
     }
   }
 
-  private async getUserData(userId: string) {
+  private async getUserData(userId: string): Promise<UserData> {
     const foundUser = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -116,7 +118,10 @@ export class AuthService {
     }
   }
 
-  async activateUser({ tokenString, password }: SetPasswordBody) {
+  async activateUser({
+    tokenString,
+    password,
+  }: SetPasswordBody): Promise<UserRes> {
     const { email, role } = await this.tokensService.verifyToken(tokenString);
     const foundUser = await this.findUser(email, role);
     const userId = foundUser.id;
@@ -134,7 +139,11 @@ export class AuthService {
     return updatedUser;
   }
 
-  async signinUser({ identifier, password, role }: SigninUserBody) {
+  async signinUser({
+    identifier,
+    password,
+    role,
+  }: SigninUserBody): Promise<SigninUserRes> {
     const foundUser = await this.findUser(identifier, role);
     if (!foundUser.password) throw new ForbiddenException('User not activated');
 
@@ -157,7 +166,7 @@ export class AuthService {
   async requestPasswordReset({ identifier, role }: RequestPasswordResetBody) {
     const foundUser = await this.findUser(identifier, role);
 
-    const job = await this.messageQueueService.enqueueSetPasswordEmail({
+    await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: false,
       tokenPayload: {
         email: foundUser.email,
@@ -165,11 +174,12 @@ export class AuthService {
         sub: foundUser.id,
       },
     });
-
-    return { job };
   }
 
-  async confirmPasswordReset({ password, tokenString }: SetPasswordBody) {
+  async confirmPasswordReset({
+    password,
+    tokenString,
+  }: SetPasswordBody): Promise<UserRes> {
     const { email, role } = await this.tokensService.verifyToken(tokenString);
     const foundUser = await this.findUser(email, role);
 

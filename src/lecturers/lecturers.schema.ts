@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  EnrollmentStatus,
-  type Level,
-  type ResultType,
-  Semester,
-} from '@prisma/client';
+import { EnrollmentStatus, type Level, type ResultType } from '@prisma/client';
 import {
   IsEmail,
   IsNotEmpty,
@@ -140,26 +135,6 @@ export class RegisterStudentsRes extends ParseCsvData<RegisterStudentBody> {
   unregisteredStudents: string[];
 }
 
-export class CourseSessionRes {
-  @ApiProperty()
-  academicYear: string;
-
-  @ApiProperty()
-  description: string;
-
-  @ApiProperty()
-  code: string;
-
-  @ApiProperty()
-  title: string;
-
-  @ApiProperty()
-  units: number;
-
-  @ApiProperty({ enum: Semester })
-  semester: Semester;
-}
-
 class Result {
   @ApiProperty()
   scores: object;
@@ -213,9 +188,9 @@ export class LecturerProfileRes {
   @ApiProperty()
   department: string;
 
-  @ApiProperty()
-  title: string;
+  @ApiProperty({ nullable: true })
+  title: string | null;
 
-  @ApiProperty()
-  qualification: string;
+  @ApiProperty({ nullable: true })
+  qualification: string | null;
 }

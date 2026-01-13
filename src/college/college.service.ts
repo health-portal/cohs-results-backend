@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateDepartmentBody, CreateFacultyBody } from './college.schema';
+import {
+  CreateDepartmentBody,
+  CreateFacultyBody,
+  DepartmentRes,
+  FacultyRes,
+} from './college.schema';
 
 @Injectable()
 export class CollegeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getFaculties() {
+  async getFaculties(): Promise<FacultyRes[]> {
     return await this.prisma.faculty.findMany({
       where: { deletedAt: null },
       select: {
@@ -16,7 +21,7 @@ export class CollegeService {
     });
   }
 
-  async getDepartments() {
+  async getDepartments(): Promise<DepartmentRes[]> {
     return await this.prisma.department.findMany({
       where: { deletedAt: null },
       select: {

@@ -19,7 +19,6 @@ import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { LecturerData, type UserPayload } from 'src/auth/auth.schema';
 import {
-  CourseSessionRes,
   EditResultBody,
   type RegisterStudentBody,
   LecturerProfileRes,
@@ -35,6 +34,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { CourseSessionRes } from 'src/sessions/sessions.schema';
 
 @ApiTags('Lecturer')
 @ApiBearerAuth('accessToken')
@@ -162,7 +162,7 @@ export class LecturerController {
   @ApiOperation({ summary: 'List students in a course session' })
   @ApiOkResponse({ type: [EnrollmentRes] })
   @ApiNotFoundResponse({ description: 'Course session not found' })
-  @Get('course-sessions/:courseSessionId/students')
+  @Get('courses-sessions/:courseSessionId/students')
   async listCourseStudents(
     @User() user: UserPayload,
     @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,

@@ -1,8 +1,14 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { RegisterStudentBody, EditResultBody } from './lecturers.schema';
+import {
+  RegisterStudentBody,
+  EditResultBody,
+  EnrollmentRes,
+  LecturerProfileRes,
+} from './lecturers.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileCategory, ResultType } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { CourseSessionRes } from 'src/sessions/sessions.schema';
 
 @Injectable()
 export class LecturerService {
@@ -29,27 +35,18 @@ export class LecturerService {
       );
   }
 
-  async listCourseSessions(lecturerId: string) {
-    const foundCourseSessions = await this.prisma.courseSession.findMany({
+  async listCourseSessions(lecturerId: string): Promise<CourseSessionRes[]> {
+    return await this.prisma.courseSession.findMany({
       where: { lecturers: { some: { id: lecturerId } } },
       select: {
-        course: {
-          select: {
-            code: true,
-            title: true,
-            units: true,
-            semester: true,
-            description: true,
-          },
-        },
-        session: { select: { academicYear: true } },
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        courseId: true,
+        sessionId: true,
+        gradingSystemId: true,
       },
     });
-
-    return foundCourseSessions.map((courseSession) => ({
-      ...courseSession.course,
-      academicYear: courseSession.session.academicYear,
-    }));
   }
 
   async registerStudent(
@@ -125,7 +122,10 @@ export class LecturerService {
     });
   }
 
-  async viewCourseResults(lecturerId: string, courseSessionId: string) {
+  async viewCourseResults(
+    lecturerId: string,
+    courseSessionId: string,
+  ): Promise<EnrollmentRes[]> {
     await this.validateCourseLecturerAccess(lecturerId, courseSessionId);
     const foundEnrollments = await this.prisma.enrollment.findMany({
       where: { courseSessionId },
@@ -156,13 +156,16 @@ export class LecturerService {
       studentLevel: enrollment.student.level,
       studentDepartment: enrollment.student.department.name,
       results: enrollment.results.map((result) => ({
-        scores: result.scores,
+        scores: result.scores as object,
         type: result.type,
       })),
     }));
   }
 
-  async listCourseStudents(lecturerId: string, courseSessionId: string) {
+  async listCourseStudents(
+    lecturerId: string,
+    courseSessionId: string,
+  ): Promise<EnrollmentRes[]> {
     await this.validateCourseLecturerAccess(lecturerId, courseSessionId);
     const foundEnrollments = await this.prisma.enrollment.findMany({
       where: { courseSessionId },
@@ -191,10 +194,11 @@ export class LecturerService {
         `${enrollment.student.lastName} ${enrollment.student.firstName} ${enrollment.student.otherName}`.trim(),
       studentLevel: enrollment.student.level,
       studentDepartment: enrollment.student.department.name,
+      results: null,
     }));
   }
 
-  async getProfile(lecturerId: string) {
+  async getProfile(lecturerId: string): Promise<LecturerProfileRes> {
     const foundLecturer = await this.prisma.lecturer.findUniqueOrThrow({
       where: { id: lecturerId },
       select: {

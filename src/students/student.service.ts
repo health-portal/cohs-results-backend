@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ChangePasswordBody } from 'src/auth/auth.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon2 from 'argon2';
+import { EnrollmentRes } from 'src/lecturers/lecturers.schema';
+import { StudentProfileRes } from './students.schema';
 
 @Injectable()
 export class StudentService {
@@ -28,7 +30,7 @@ export class StudentService {
     });
   }
 
-  async listEnrollments(studentId: string) {
+  async listEnrollments(studentId: string): Promise<EnrollmentRes[]> {
     const foundEnrollments = await this.prisma.enrollment.findMany({
       where: { studentId },
       select: {
@@ -58,13 +60,16 @@ export class StudentService {
       studentLevel: enrollment.student.level,
       studentDepartment: enrollment.student.department.name,
       results: enrollment.results.map((result) => ({
-        scores: result.scores,
+        scores: result.scores as object,
         type: result.type,
       })),
     }));
   }
 
-  async listEnrollment(studentId: string, enrollmentId: string) {
+  async listEnrollment(
+    studentId: string,
+    enrollmentId: string,
+  ): Promise<EnrollmentRes> {
     const foundEnrollment = await this.prisma.enrollment.findUniqueOrThrow({
       where: { id: enrollmentId, studentId },
       select: {
@@ -94,13 +99,13 @@ export class StudentService {
       studentLevel: foundEnrollment.student.level,
       studentDepartment: foundEnrollment.student.department.name,
       results: foundEnrollment.results.map((result) => ({
-        scores: result.scores,
+        scores: result.scores as object,
         type: result.type,
       })),
     };
   }
 
-  async getProfile(studentId: string) {
+  async getProfile(studentId: string): Promise<StudentProfileRes> {
     const foundStudent = await this.prisma.student.findUniqueOrThrow({
       where: { id: studentId, deletedAt: null },
       select: {

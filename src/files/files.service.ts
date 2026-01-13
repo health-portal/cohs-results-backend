@@ -15,6 +15,7 @@ import { validateSync } from 'class-validator';
 import {
   FileErrorMessage,
   FileMetadata,
+  FileRes,
   ParseCsvData,
   ProvideAltHeaderMappingsBody,
   RowValidationError,
@@ -44,8 +45,26 @@ export class FilesService {
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
-  async getFiles(userId: string) {
-    return this.prisma.file.findMany({ where: { userId } });
+  async getFiles(userId: string): Promise<FileRes[]> {
+    const foundFiles = await this.prisma.file.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        filename: true,
+        createdAt: true,
+        description: true,
+        mimetype: true,
+        metadata: true,
+        category: true,
+        isProcessed: true,
+        user: { select: { id: true, email: true, role: true } },
+      },
+    });
+
+    return foundFiles.map((file) => ({
+      ...file,
+      metadata: file.metadata as object,
+    }));
   }
 
   async provideAltHeaderMappings(
