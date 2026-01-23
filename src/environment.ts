@@ -6,9 +6,7 @@ dotenv.config();
 export const env = cleanEnv(process.env, {
   DATABASE_URL: str(),
   DEFAULT_ADMINS: json<{ name: string; email: string }[]>(),
-  FRONTEND_ACTIVATION_URL: url(),
   FRONTEND_BASE_URL: url(),
-  FRONTEND_RESET_URL: url(),
   JWT_SECRET: str(),
   PORT: port(),
   SMTPEXPRESS_PROJECT_ID: str(),

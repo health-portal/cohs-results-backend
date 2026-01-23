@@ -1,6 +1,6 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
-import { env } from 'src/lib/environment';
+import { env } from 'src/environment';
 import { createClient } from 'smtpexpress';
 import {
   ParseFilePayload,

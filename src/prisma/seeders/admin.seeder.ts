@@ -1,5 +1,5 @@
 import { type PrismaClient, UserRole } from '@prisma/client';
-import { env } from 'src/lib/environment';
+import { env } from 'src/environment';
 
 export default async function seedAdmins(prisma: PrismaClient) {
   console.log('\n=== Admin Seeding Started ===\n');
