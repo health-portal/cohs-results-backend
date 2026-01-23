@@ -8,7 +8,6 @@ import {
 } from './grading-systems.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'expr-eval';
-import { hasUniqueValues } from 'src/lib/utils';
 import {
   GradingComputation,
   GradingField,
@@ -19,6 +18,18 @@ import {
 @Injectable()
 export class GradingSystemsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private hasUniqueValues<T>(arr: T[], key: keyof T): boolean {
+    const seen = new Set();
+    for (const item of arr) {
+      const value = item[key];
+      if (seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+    }
+    return true;
+  }
 
   async createGradingSystem({
     name,
@@ -65,10 +76,10 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { fields }: UpsertGradingFieldsBody,
   ) {
-    if (!hasUniqueValues(fields, 'variable'))
+    if (!this.hasUniqueValues(fields, 'variable'))
       throw new BadRequestException('Variable names must be unique');
 
-    if (!hasUniqueValues(fields, 'label'))
+    if (!this.hasUniqueValues(fields, 'label'))
       throw new BadRequestException('Labels must be unique');
 
     const totalWeight = fields.reduce((sum, field) => {
@@ -98,10 +109,10 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { computations }: UpsertGradingComputationsBody,
   ) {
-    if (!hasUniqueValues(computations, 'variable'))
+    if (!this.hasUniqueValues(computations, 'variable'))
       throw new BadRequestException('Variable names must be unique');
 
-    if (!hasUniqueValues(computations, 'label'))
+    if (!this.hasUniqueValues(computations, 'label'))
       throw new BadRequestException('Labels must be unique');
 
     const foundGradingFields = await this.getGradingFields(gradingSystemId);
@@ -146,7 +157,7 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { ranges }: UpsertGradingRangesBody,
   ) {
-    if (!hasUniqueValues(ranges, 'label'))
+    if (!this.hasUniqueValues(ranges, 'label'))
       throw new BadRequestException('Labels must be unique');
 
     const sortedRanges = ranges.sort((a, b) => a.minScore - b.minScore);
