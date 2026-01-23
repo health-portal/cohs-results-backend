@@ -45,4 +45,4 @@ jobs:
           SMTPEXPRESS_SENDER_EMAIL: ${{ secrets.SMTPEXPRESS_SENDER_EMAIL }}
 
         run: |
-          node dist/workers.js
+          node dist/cron.js
