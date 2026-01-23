@@ -36,7 +36,10 @@ jobs:
       - name: Run message queue cron
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEFAULT_ADMINS: ${{ secrets.DEFAULT_ADMINS }}
+          FRONTEND_BASE_URL: ${{ secrets.FRONTEND_BASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PORT: ${{ secrets.PORT }}
           SMTPEXPRESS_PROJECT_ID: ${{ secrets.SMTPEXPRESS_PROJECT_ID }}
           SMTPEXPRESS_PROJECT_SECRET: ${{ secrets.SMTPEXPRESS_PROJECT_SECRET }}
           SMTPEXPRESS_SENDER_EMAIL: ${{ secrets.SMTPEXPRESS_SENDER_EMAIL }}
