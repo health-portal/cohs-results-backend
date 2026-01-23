@@ -50,7 +50,6 @@ export class MessageQueueWorkersModule
   private async processEmail() {
     await this.boss.work(QueueTable.EMAILS, async ([job]) => {
       const { content, toEmail, subject } = job.data as SendEmailPayload;
-      console.log('Processing email:', { content, toEmail, subject });
       await this.emailClient.sendApi.sendMail({
         subject,
         message: content,

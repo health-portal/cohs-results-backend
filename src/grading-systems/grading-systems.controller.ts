@@ -49,7 +49,7 @@ export class GradingSystemsController {
   }
 
   @ApiOperation({ summary: 'Get all grading systems' })
-  @ApiOkResponse({ description: 'List of grading systems returned' })
+  @ApiOkResponse({  })
   @Get()
   async getGradingSystems() {
     return this.gradingSystemsService.getGradingSystems();

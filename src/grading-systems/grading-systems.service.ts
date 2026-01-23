@@ -9,6 +9,12 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'expr-eval';
 import { hasUniqueValues } from 'src/lib/utils';
+import {
+  GradingComputation,
+  GradingField,
+  GradingRange,
+  ResultType,
+} from '@prisma/client';
 
 @Injectable()
 export class GradingSystemsService {
@@ -25,9 +31,11 @@ export class GradingSystemsService {
   }
 
   async getGradingSystems() {
-    return await this.prisma.gradingSystem.findMany({
+    const foundGradingSystem = await this.prisma.gradingSystem.findMany({
       where: { deletedAt: null },
     });
+
+    return foundGradingSystem;
   }
 
   async getGradingSystem(gradingSystemId: string) {
@@ -162,16 +170,45 @@ export class GradingSystemsService {
     });
   }
 
-  async validateScores(scores: object, gradingSystemId: string) {
-    const gradingFields = await this.getGradingFields(gradingSystemId);
-    const labels = gradingFields.map((field) => field.label);
-    return Object.keys(scores).every((key) => labels.includes(key));
-  }
+  async evaluateFromScores(
+    enrollmentId: string,
+    scores: Record<string, number>,
+    gradingSystem: {
+      computations: GradingComputation[];
+      fields: GradingField[];
+      ranges: GradingRange[];
+    },
+  ) {
+    const scoresToGrade = Object.fromEntries(
+      gradingSystem.fields.map((field) => [
+        field.label,
+        (scores[field.variable] / field.maxScore) * field.weight, // Scale score to weight which is a percentage
+      ]),
+    );
 
-  async computeGradesFromScores(score: object, gradingSystemId: string) {
-    const gradingFields = await this.getGradingFields(gradingSystemId);
-    const gradingRanges = await this.getGradingRanges(gradingSystemId);
-    const gradingComputations =
-      await this.getGradingComputations(gradingSystemId);
+    const computationResults = Object.fromEntries(
+      gradingSystem.computations.map((computation) => {
+        const { expression } = computation;
+        return [
+          computation.variable,
+          Parser.evaluate(expression, scoresToGrade),
+        ];
+      }),
+    );
+
+    // Extract grade label for score
+    const matchedRange = gradingSystem.ranges.find(
+      ({ minScore, maxScore }) =>
+        computationResults.total >= minScore &&
+        computationResults.total <= maxScore,
+    );
+
+    await this.prisma.result.update({
+      where: { uniqueResult: { enrollmentId, type: ResultType.INITIAL } },
+      data: {
+        scores,
+        evaluations: { ...computationResults, Grade: matchedRange },
+      },
+    });
   }
 }

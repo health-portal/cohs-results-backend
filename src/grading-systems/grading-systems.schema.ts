@@ -133,3 +133,26 @@ export class UpsertGradingRangesBody {
   @IsArray()
   ranges: GradingRange[];
 }
+
+export class GradingSystemRes {
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ nullable: true })
+  description: string | null;
+
+  @ApiProperty()
+  threshold: number;
+
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  createdAt: Date;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  updatedAt: Date;
+
+  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  deletedAt: Date | null;
+}

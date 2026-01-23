@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
-import { FileCategory, ResultType, UserRole } from '@prisma/client';
+import { FileCategory, UserRole } from '@prisma/client';
 import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
 import { plainToInstance } from 'class-transformer';
@@ -34,6 +34,7 @@ import {
   CreateStudentBody,
   CreateStudentsRes,
 } from 'src/students/students.schema';
+import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
 
 @Injectable()
 export class FilesService {
@@ -43,6 +44,7 @@ export class FilesService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => MessageQueueService))
     private readonly messageQueueService: MessageQueueService,
+    private readonly gradingSystemService: GradingSystemsService,
   ) {}
 
   async getFiles(userId: string): Promise<FileRes[]> {
@@ -150,7 +152,7 @@ export class FilesService {
         data: {
           metadata: JSON.stringify({
             ...metadata,
-            error: error.message,
+            error: error.message as string,
           }),
         },
       });
@@ -305,12 +307,25 @@ export class FilesService {
     );
 
     const parsed = this.parseCsv(csv, UploadResultRow, headerMappings);
-
     const res: UploadResultsRes = {
       studentsUploadedFor: [],
       studentsNotFound: [],
       ...parsed,
     };
+
+    const foundCourseSession =
+      await this.prisma.courseSession.findUniqueOrThrow({
+        where: { id: metadata.courseSessionId },
+      });
+    const foundGradingSystem =
+      await this.prisma.gradingSystem.findUniqueOrThrow({
+        where: { id: foundCourseSession.gradingSystemId },
+        select: {
+          computations: true,
+          fields: true,
+          ranges: true,
+        },
+      });
 
     for (const row of parsed.validRows) {
       try {
@@ -319,22 +334,19 @@ export class FilesService {
           select: { id: true, user: true },
         });
 
-        await this.prisma.enrollment.update({
+        const foundEnrollment = await this.prisma.enrollment.findUniqueOrThrow({
           where: {
             uniqueEnrollment: {
               studentId: student.id,
               courseSessionId: metadata.courseSessionId,
             },
           },
-          data: {
-            results: {
-              create: {
-                scores: row.scores,
-                type: ResultType.INITIAL,
-              },
-            },
-          },
         });
+        await this.gradingSystemService.evaluateFromScores(
+          foundEnrollment.id,
+          row.scores,
+          foundGradingSystem,
+        );
 
         res.studentsUploadedFor.push(row.matricNumber);
       } catch {
@@ -492,14 +504,14 @@ export class FilesService {
         };
 
       case FileCategory.RESULTS: {
-        const cs = await this.prisma.courseSession.findUniqueOrThrow({
-          where: { id: courseSessionId },
-        });
+        const foundCourseSession =
+          await this.prisma.courseSession.findUniqueOrThrow({
+            where: { id: courseSessionId },
+          });
 
         const fields = await this.prisma.gradingField.findMany({
-          where: { gradingSystemId: cs.gradingSystemId },
+          where: { gradingSystemId: foundCourseSession.gradingSystemId },
         });
-
         return Object.fromEntries(fields.map((f) => [f.label, f.variable]));
       }
 
