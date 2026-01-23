@@ -12,7 +12,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PgBossProvider } from './pg-boss.provider';
-import env from 'src/workers.env';
+import env from 'src/env.workers';
 
 @Module({
   imports: [

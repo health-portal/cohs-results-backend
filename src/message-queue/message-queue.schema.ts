@@ -1,4 +1,4 @@
-import env from 'src/api.env.';
+import env from 'src/environment';
 import { TokenPayload } from 'src/auth/auth.schema';
 
 export enum QueueTable {
