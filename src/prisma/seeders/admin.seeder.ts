@@ -1,12 +1,13 @@
 import { type PrismaClient, UserRole } from '@prisma/client';
 import { createClient } from 'smtpexpress';
 import { TokenPayload } from 'src/auth/auth.schema';
-import { env } from 'src/environment';
+
 import {
   EmailSubject,
   setPasswordTemplate,
 } from 'src/message-queue/message-queue.schema';
 import * as jwt from 'jsonwebtoken';
+import env from 'src/api.env.';
 
 export default async function seedAdmins(prisma: PrismaClient) {
   const emailClient = createClient({

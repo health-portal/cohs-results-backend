@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
-import { env } from './environment';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CollegeModule } from './college/college.module';
@@ -14,6 +13,7 @@ import { MessageQueueModule } from './message-queue/message-queue.module';
 import { GradingSystemsModule } from './grading-systems/grading-systems.module';
 import { FilesModule } from './files/files.module';
 import { TokensModule } from './tokens/tokens.module';
+import env from './api.env.';
 
 @Module({
   imports: [

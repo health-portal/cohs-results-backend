@@ -29,8 +29,11 @@ jobs:
 
       - name: Build
         run: npm run build
+        
+      - name: Generate Prisma Client
+        run: npm run generate
 
-      - name: Run message queue worker
+      - name: Run message queue cron
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}

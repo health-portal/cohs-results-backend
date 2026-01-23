@@ -1,7 +1,7 @@
 import { PgBoss } from 'pg-boss';
 import { QueueTable } from './message-queue.schema';
-import { env } from 'src/environment';
 import { Provider } from '@nestjs/common';
+import env from 'src/workers.env';
 
 export const PgBossProvider: Provider = {
   provide: 'PG_BOSS',

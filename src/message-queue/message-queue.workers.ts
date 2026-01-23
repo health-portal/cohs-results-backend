@@ -1,6 +1,5 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
-import { env } from 'src/environment';
 import { createClient } from 'smtpexpress';
 import {
   ParseFilePayload,
@@ -13,6 +12,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PgBossProvider } from './pg-boss.provider';
+import env from 'src/workers.env';
 
 @Module({
   imports: [
