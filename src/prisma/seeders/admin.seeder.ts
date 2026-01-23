@@ -7,7 +7,7 @@ import {
   setPasswordTemplate,
 } from 'src/message-queue/message-queue.schema';
 import * as jwt from 'jsonwebtoken';
-import env from 'src/env.api';
+import env from 'src/environment';
 
 export default async function seedAdmins(prisma: PrismaClient) {
   const emailClient = createClient({

@@ -13,7 +13,7 @@ import { MessageQueueModule } from './message-queue/message-queue.module';
 import { GradingSystemsModule } from './grading-systems/grading-systems.module';
 import { FilesModule } from './files/files.module';
 import { TokensModule } from './tokens/tokens.module';
-import env from './env.api';
+import env from './environment';
 
 @Module({
   imports: [
