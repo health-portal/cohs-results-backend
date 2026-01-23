@@ -10,6 +10,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
+    "start:cron": "node dist/cron.js",
     "start:workers": "node dist/workers.js",
     "start:all": "concurrently \"npm run start\" \"npm run start:workers\"",
     "generate": "npx prisma generate",
