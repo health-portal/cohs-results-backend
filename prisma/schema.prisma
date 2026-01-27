@@ -116,7 +116,8 @@ model Lecturer {
     lastName      String
     otherName     String?
     phone         String? @unique
-    title         String?
+    gender        Gender
+    title         String
     qualification String?
 
     userId          String                @unique
@@ -139,8 +140,8 @@ model LecturerDesignation {
     entity String
     role   LecturerRole
 
-    lecturerId String?
-    lecturer   Lecturer? @relation(fields: [lecturerId], references: [id])
+    lecturerId String
+    lecturer   Lecturer @relation(fields: [lecturerId], references: [id])
 
     @@unique([entity, role], name: "designation")
     @@index([role])
@@ -258,6 +259,8 @@ model Course {
     @@index([code])
     @@map("courses")
 }
+
+// TODO: Pre-requisites and post-requisites should be stored for courses
 
 model CourseSession {
     id        String   @id @default(uuid())
@@ -421,6 +424,8 @@ model Enrollment {
     @@index([status])
     @@map("enrollments")
 }
+
+// TODO: A student's levelAtEnrollment should be added to enrollment
 
 model Result {
     id        String   @id @default(uuid())

@@ -61,6 +61,7 @@ export class FilesService {
         isProcessed: true,
         user: { select: { id: true, email: true, role: true } },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     return foundFiles.map((file) => ({

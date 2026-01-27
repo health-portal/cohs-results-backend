@@ -2,9 +2,9 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import {
   AssignCourseToSessionBody,
-  type AssignDeptAndLevelBody,
-  type AssignLecturersBody,
-  type CreateSessionBody,
+  AssignDeptAndLevelBody,
+  AssignLecturersBody,
+  CreateSessionBody,
   DeptAndLevelRes,
   SessionRes,
 } from './sessions.schema';
@@ -34,6 +34,7 @@ export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
   @ApiOperation({ summary: 'Create a new session' })
+  @ApiBody({ type: CreateSessionBody })
   @ApiCreatedResponse({ description: 'Session created successfully' })
   @ApiConflictResponse({ description: 'Session already exists' })
   @Post()
@@ -77,6 +78,7 @@ export class SessionsController {
   }
 
   @ApiOperation({ summary: 'Assign lecturers to a course' })
+  @ApiBody({ type: AssignLecturersBody })
   @ApiCreatedResponse({ description: 'Lecturers assigned successfully' })
   @ApiBadRequestResponse({
     description: 'Invalid session or course or lecturer information',
@@ -106,6 +108,7 @@ export class SessionsController {
   }
 
   @ApiOperation({ summary: 'Assign departments and levels to a course' })
+  @ApiBody({ type: [AssignDeptAndLevelBody] })
   @ApiCreatedResponse({
     description: 'Departments and levels assigned successfully',
   })

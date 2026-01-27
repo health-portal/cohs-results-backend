@@ -49,7 +49,7 @@ export class GradingSystemsController {
   }
 
   @ApiOperation({ summary: 'Get all grading systems' })
-  @ApiOkResponse({  })
+  @ApiOkResponse({ description: 'Grading systems returned successfully' })
   @Get()
   async getGradingSystems() {
     return this.gradingSystemsService.getGradingSystems();
@@ -105,6 +105,7 @@ export class GradingSystemsController {
   })
   @ApiBody({ type: UpsertGradingFieldsBody })
   @ApiOkResponse({ description: 'Grading fields upserted successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Put(':gradingSystemId/fields')
   async upsertGradingFields(
@@ -138,6 +139,7 @@ export class GradingSystemsController {
   })
   @ApiBody({ type: UpsertGradingComputationsBody })
   @ApiOkResponse({ description: 'Grading computations upserted successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Put(':gradingSystemId/computations')
   async upsertGradingComputations(
@@ -171,6 +173,7 @@ export class GradingSystemsController {
   })
   @ApiBody({ type: UpsertGradingRangesBody })
   @ApiOkResponse({ description: 'Grading ranges upserted successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Put(':gradingSystemId/ranges')
   async upsertGradingRanges(
