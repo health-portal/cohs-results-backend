@@ -1,6 +1,8 @@
-### **Database Schema Design Report**
+# ARCHITECTURE
 
-#### **1. User Management & Authentication**
+## **Database Schema Design Report**
+
+## **1. User Management & Authentication**
 
 This module handles system access, authentication, and the specific profiles associated with different types of users.
 
@@ -37,7 +39,7 @@ This module handles system access, authentication, and the specific profiles ass
 
 ---
 
-#### **2. Academic Structure**
+### **2. Academic Structure**
 
 This module defines the hierarchy of the institution (Faculties and Departments) and the timeline (Sessions).
 
@@ -60,7 +62,7 @@ This module defines the hierarchy of the institution (Faculties and Departments)
 
 ---
 
-#### **3. Course Management**
+### **3. Course Management**
 
 This module distinguishes between the static catalog of courses and the specific instances offered during a semester.
 
@@ -91,7 +93,7 @@ This module distinguishes between the static catalog of courses and the specific
 
 ---
 
-#### **4. Grading & Assessment**
+### **4. Grading & Assessment**
 
 This module handles the dynamic configuration of grading rules and the storage of student results.
 
@@ -126,7 +128,7 @@ This module handles the dynamic configuration of grading rules and the storage o
 
 ---
 
-#### **5. Utilities & System Logs**
+### **5. Utilities & System Logs**
 
 - **File**
   - **Description:** Stores binary data for uploaded documents (Results, Bulk Registrations, etc.) along with processing status metadata.
@@ -142,7 +144,7 @@ This report breaks down the backend into functional domains, explaining how reso
 
 ---
 
-# **Backend System Resource Report**
+## **Backend System Resource Report**
 
 ### **1. Authentication & Account Lifecycle**
 
