@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import seedAdmins from './admin.seeder';
 import seedFacultiesAndDepartments from './faculties-and-depts.seeder';
-import seedLecturerDesignations from './lecturer-designations.seeder';
 
 async function main() {
   const prisma = new PrismaClient();
@@ -13,7 +12,6 @@ async function main() {
 
     await seedAdmins(prisma);
     await seedFacultiesAndDepartments(prisma);
-    await seedLecturerDesignations(prisma);
 
     console.log('✅ Database Seeding Completed Successfully.\n');
   } catch (error) {

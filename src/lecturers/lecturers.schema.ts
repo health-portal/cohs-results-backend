@@ -1,7 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { EnrollmentStatus, type Level, type ResultType } from '@prisma/client';
+import {
+  EnrollmentStatus,
+  Gender,
+  type Level,
+  type ResultType,
+} from '@prisma/client';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -28,6 +34,10 @@ export class CreateLecturerBody {
   @IsOptional()
   @IsString()
   otherName?: string;
+
+  @ApiProperty({ enum: Gender })
+  @IsEnum(Gender)
+  gender: Gender;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -64,6 +74,10 @@ export class UpdateLecturerBody {
   @IsOptional()
   @IsString()
   otherName?: string;
+
+  @ApiProperty({ enum: Gender })
+  @IsEnum(Gender)
+  gender: Gender;
 
   @ApiProperty({ required: false })
   @IsOptional()

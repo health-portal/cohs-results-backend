@@ -224,6 +224,7 @@ export class FilesService {
                 otherName: row.otherName,
                 phone: row.phone,
                 title: row.title,
+                gender: row.gender,
                 department: { connect: { name: row.department } },
               },
             },

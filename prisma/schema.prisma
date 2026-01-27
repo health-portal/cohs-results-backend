@@ -143,7 +143,7 @@ model LecturerDesignation {
     lecturerId String
     lecturer   Lecturer @relation(fields: [lecturerId], references: [id])
 
-    @@unique([entity, role], name: "designation")
+    @@unique([entity, role, lecturerId], name: "designation")
     @@index([role])
     @@index([lecturerId])
     @@map("lecturer_designations")

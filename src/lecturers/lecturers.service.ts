@@ -19,6 +19,7 @@ export class LecturersService {
     department,
     phone,
     title,
+    gender,
   }: CreateLecturerBody) {
     const createdUser = await this.prisma.user.create({
       data: {
@@ -32,6 +33,7 @@ export class LecturersService {
             department: { connect: { name: department } },
             phone,
             title,
+            gender,
           },
         },
       },
