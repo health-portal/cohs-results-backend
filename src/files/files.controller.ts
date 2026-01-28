@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { FilesService } from './files.service';
 import {
   ApiBearerAuth,
@@ -21,7 +13,7 @@ import { User } from 'src/auth/user.decorator';
 import { type UserPayload } from 'src/auth/auth.schema';
 import { FileRes, ProvideAltHeaderMappingsBody } from './files.schema';
 
-@ApiTags('Files')
+@ApiTags('files', 'Admin', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('files')
 @AuthRoles([UserRole.ADMIN, UserRole.LECTURER])

@@ -35,7 +35,7 @@ import {
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
 
-@ApiTags('Students', 'Admin')
+@ApiTags('students', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('students')
 @AuthRoles([UserRole.ADMIN])

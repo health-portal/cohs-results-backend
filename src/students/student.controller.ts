@@ -26,7 +26,7 @@ import {
 import { EnrollmentRes } from 'src/lecturers/lecturers.schema';
 import { StudentProfileRes } from './students.schema';
 
-@ApiTags('Student')
+@ApiTags('student', 'Student')
 @ApiBearerAuth('accessToken')
 @Controller('student')
 @AuthRoles([UserRole.STUDENT])

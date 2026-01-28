@@ -25,7 +25,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CourseRes } from 'src/courses/courses.schema';
 import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
 
-@ApiTags('Sessions', 'Admin')
+@ApiTags('sessions', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('sessions')
 @AuthRoles([UserRole.ADMIN])

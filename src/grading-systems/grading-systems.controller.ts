@@ -31,7 +31,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 
-@ApiTags('Grading Systems', 'Admin')
+@ApiTags('grading-systems', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('grading-systems')
 @AuthRoles([UserRole.ADMIN])

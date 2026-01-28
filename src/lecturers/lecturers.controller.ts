@@ -34,7 +34,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
 
-@ApiTags('Lecturers', 'Admin')
+@ApiTags('lecturers', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('lecturers')
 @AuthRoles([UserRole.ADMIN])

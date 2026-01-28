@@ -16,7 +16,7 @@ import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { AdminData, type UserPayload } from 'src/auth/auth.schema';
 
-@ApiTags('Admin')
+@ApiTags('admin', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('admin')
 @AuthRoles([UserRole.ADMIN])

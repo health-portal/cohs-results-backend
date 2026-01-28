@@ -37,7 +37,7 @@ import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-@ApiTags('Courses', 'Admin')
+@ApiTags('courses', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('courses')
 @AuthRoles([UserRole.ADMIN])

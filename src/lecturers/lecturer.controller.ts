@@ -36,7 +36,7 @@ import {
 } from '@nestjs/swagger';
 import { CourseSessionRes } from 'src/sessions/sessions.schema';
 
-@ApiTags('Lecturer')
+@ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('lecturer')
 @AuthRoles([UserRole.LECTURER])

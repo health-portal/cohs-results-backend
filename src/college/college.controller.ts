@@ -29,7 +29,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-@ApiTags('College', 'Admin')
+@ApiTags('college', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('college')
 @AuthRoles([UserRole.ADMIN])
