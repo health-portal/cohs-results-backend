@@ -13,6 +13,7 @@ import { MessageQueueModule } from './message-queue/message-queue.module';
 import { GradingSystemsModule } from './grading-systems/grading-systems.module';
 import { FilesModule } from './files/files.module';
 import { TokensModule } from './tokens/tokens.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 import env from './environment';
 
 @Module({
@@ -31,6 +32,7 @@ import env from './environment';
     GradingSystemsModule,
     FilesModule,
     TokensModule,
+    ApprovalsModule,
   ],
 })
 export class AppModule {}
