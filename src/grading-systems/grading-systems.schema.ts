@@ -155,4 +155,13 @@ export class GradingSystemRes {
 
   @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
   deletedAt: Date | null;
+
+  @ApiProperty()
+  fieldsCount: number;
+
+  @ApiProperty()
+  computationsCount: number;
+
+  @ApiProperty()
+  rangesCount: number;
 }

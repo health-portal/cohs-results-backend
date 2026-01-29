@@ -11,6 +11,10 @@ import {
 import { GradingSystemsService } from './grading-systems.service';
 import {
   CreateGradingSystemBody,
+  GradingComputation,
+  GradingField,
+  GradingRange,
+  GradingSystemRes,
   UpdateGradingSystemBody,
   UpsertGradingComputationsBody,
   UpsertGradingFieldsBody,
@@ -49,7 +53,7 @@ export class GradingSystemsController {
   }
 
   @ApiOperation({ summary: 'Get all grading systems' })
-  @ApiOkResponse({ description: 'Grading systems returned successfully' })
+  @ApiOkResponse({ type: [GradingSystemRes] })
   @Get()
   async getGradingSystems() {
     return this.gradingSystemsService.getGradingSystems();
@@ -60,7 +64,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ description: 'Grading system returned' })
+  @ApiOkResponse({ type: GradingSystemRes })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId')
   async getGradingSystem(@Param('gradingSystemId') gradingSystemId: string) {
@@ -123,7 +127,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ description: 'Grading fields returned' })
+  @ApiOkResponse({ type: [GradingField] })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId/fields')
   async getGradingSystemFields(
@@ -157,7 +161,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ description: 'Grading computations returned' })
+  @ApiOkResponse({ type: [GradingComputation] })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId/computations')
   async getGradingSystemComputations(
@@ -191,7 +195,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ description: 'Grading ranges returned' })
+  @ApiOkResponse({ type: [GradingRange] })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId/ranges')
   async getGradingRanges(@Param('gradingSystemId') gradingSystemId: string) {

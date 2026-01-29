@@ -5,6 +5,7 @@ import {
   UpsertGradingFieldsBody,
   UpsertGradingComputationsBody,
   UpsertGradingRangesBody,
+  GradingSystemRes,
 } from './grading-systems.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'expr-eval';
@@ -41,18 +42,67 @@ export class GradingSystemsService {
     });
   }
 
-  async getGradingSystems() {
-    const foundGradingSystem = await this.prisma.gradingSystem.findMany({
+  async getGradingSystems(): Promise<GradingSystemRes[]> {
+    const foundGradingSystems = await this.prisma.gradingSystem.findMany({
       where: { deletedAt: null },
+      select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        name: true,
+        description: true,
+        threshold: true,
+        _count: {
+          select: { fields: true, computations: true, ranges: true },
+        },
+      },
     });
 
-    return foundGradingSystem;
+    return foundGradingSystems.map((gradingSystem) => ({
+      id: gradingSystem.id,
+      createdAt: gradingSystem.createdAt,
+      updatedAt: gradingSystem.updatedAt,
+      deletedAt: gradingSystem.deletedAt,
+      name: gradingSystem.name,
+      description: gradingSystem.description,
+      threshold: gradingSystem.threshold,
+      fieldsCount: gradingSystem._count.fields,
+      computationsCount: gradingSystem._count.computations,
+      rangesCount: gradingSystem._count.ranges,
+    }));
   }
 
-  async getGradingSystem(gradingSystemId: string) {
-    return await this.prisma.gradingSystem.findUnique({
-      where: { id: gradingSystemId },
-    });
+  async getGradingSystem(gradingSystemId: string): Promise<GradingSystemRes> {
+    const foundGradingSystem =
+      await this.prisma.gradingSystem.findUniqueOrThrow({
+        where: { id: gradingSystemId },
+        select: {
+          id: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+          name: true,
+          description: true,
+          threshold: true,
+          _count: {
+            select: { fields: true, computations: true, ranges: true },
+          },
+        },
+      });
+
+    return {
+      id: foundGradingSystem.id,
+      createdAt: foundGradingSystem.createdAt,
+      updatedAt: foundGradingSystem.updatedAt,
+      deletedAt: foundGradingSystem.deletedAt,
+      name: foundGradingSystem.name,
+      description: foundGradingSystem.description,
+      threshold: foundGradingSystem.threshold,
+      fieldsCount: foundGradingSystem._count.fields,
+      computationsCount: foundGradingSystem._count.computations,
+      rangesCount: foundGradingSystem._count.ranges,
+    };
   }
 
   async updateGradingSystem(
