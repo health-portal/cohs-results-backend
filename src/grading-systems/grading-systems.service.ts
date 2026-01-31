@@ -107,11 +107,11 @@ export class GradingSystemsService {
 
   async updateGradingSystem(
     gradingSystemId: string,
-    { name, description }: UpdateGradingSystemBody,
+    { name, description, threshold }: UpdateGradingSystemBody,
   ) {
     await this.prisma.gradingSystem.update({
       where: { id: gradingSystemId },
-      data: { name, description },
+      data: { name, description, threshold },
     });
   }
 

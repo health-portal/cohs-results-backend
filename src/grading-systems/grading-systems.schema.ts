@@ -27,13 +27,19 @@ export class CreateGradingSystemBody {
 }
 
 export class UpdateGradingSystemBody {
-  @ApiProperty()
+  @ApiProperty({ nullable: true })
   @IsString()
   name?: string;
 
-  @ApiProperty()
+  @ApiProperty({ nullable: true })
   @IsString()
   description?: string;
+
+  @ApiProperty({ nullable: true })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  threshold?: number;
 }
 
 export class GradingField {
