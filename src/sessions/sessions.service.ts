@@ -8,7 +8,6 @@ import {
   AssignCourseToSessionBody,
   AssignDeptAndLevelBody,
   AssignLecturersBody,
-  CourseSessionRes,
   CreateSessionBody,
   DeptAndLevelRes,
 } from './sessions.schema';
@@ -79,18 +78,53 @@ export class SessionsService {
     });
   }
 
-  async getCoursesInSession(sessionId: string): Promise<CourseSessionRes[]> {
-    return await this.prisma.courseSession.findMany({
+  async getCoursesInSession(sessionId: string) {
+    const foundCourseSessions = await this.prisma.courseSession.findMany({
       where: { sessionId },
       select: {
         id: true,
         createdAt: true,
         updatedAt: true,
-        courseId: true,
-        sessionId: true,
-        gradingSystemId: true,
+        session: true,
+        gradingSystem: true,
+        deptsAndLevels: true,
+        course: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            description: true,
+            semester: true,
+            units: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+                maxLevel: true,
+                faculty: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            lecturers: true,
+          },
+        },
       },
     });
+
+    return foundCourseSessions.map((courseSession) => ({
+      id: courseSession.id,
+      createdAt: courseSession.createdAt,
+      updatedAt: courseSession.updatedAt,
+      session: courseSession.session,
+      gradingSystem: courseSession.gradingSystem,
+      deptsAndLevels: courseSession.deptsAndLevels,
+      course: courseSession.course,
+      lecturerCount: courseSession._count.lecturers,
+    }));
   }
 
   async assignLecturersToCourse(
@@ -190,6 +224,10 @@ export class SessionsService {
     return await this.prisma.courseSesnDeptAndLevel.findMany({
       where: { courseSession: { courseId, sessionId } },
       select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        courseSessionId: true,
         department: {
           select: {
             id: true,
