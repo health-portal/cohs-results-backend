@@ -51,7 +51,7 @@ export class StudentsService {
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,
-        role: UserRole.ADMIN,
+        role: UserRole.STUDENT,
         sub: createdUser.id,
       },
     });

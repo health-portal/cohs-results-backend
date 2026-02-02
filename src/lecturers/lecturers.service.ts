@@ -43,7 +43,7 @@ export class LecturersService {
       isActivateAccount: true,
       tokenPayload: {
         email: createdUser.email,
-        role: UserRole.ADMIN,
+        role: UserRole.LECTURER,
         sub: createdUser.id,
       },
     });
