@@ -15,7 +15,7 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import {
-  type CreateStudentBody,
+  CreateStudentBody,
   StudentProfileRes,
   UpdateStudentBody,
 } from './students.schema';
@@ -44,6 +44,7 @@ export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
   @ApiOperation({ summary: 'Create a new student' })
+  @ApiBody({ type: CreateStudentBody })
   @ApiCreatedResponse({ description: 'Student created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiConflictResponse({ description: 'Student already exists.' })
@@ -95,6 +96,7 @@ export class StudentsController {
   }
 
   @ApiOperation({ summary: 'Update a student' })
+  @ApiBody({ type: UpdateStudentBody })
   @ApiParam({
     name: 'studentId',
     description: 'The ID of Student to update',
