@@ -8,7 +8,6 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileCategory, ResultType } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
-import { CourseSessionRes } from 'src/sessions/sessions.schema';
 
 @Injectable()
 export class LecturerService {
@@ -35,7 +34,7 @@ export class LecturerService {
       );
   }
 
-  async listCourseSessions(lecturerId: string): Promise<CourseSessionRes[]> {
+  async listCourseSessions(lecturerId: string) {
     return await this.prisma.courseSession.findMany({
       where: { lecturers: { some: { id: lecturerId } } },
       select: {
