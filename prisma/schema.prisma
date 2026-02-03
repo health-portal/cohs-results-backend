@@ -224,6 +224,7 @@ model Session {
     id        String   @id @default(uuid())
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    deletedAt DateTime?
 
     academicYear String   @unique
     startDate    DateTime

@@ -25,6 +25,22 @@ export class CreateSessionBody {
   endDate: Date;
 }
 
+export class UpdateSessionBody {
+  @ApiProperty({ nullable: true })
+  @IsSequentialAcademicYear()
+  academicYear?: string;
+
+  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  @IsDate()
+  @Type(() => Date)
+  startDate?: Date;
+
+  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  @IsDate()
+  @Type(() => Date)
+  endDate?: Date;
+}
+
 export class AssignCourseToSessionBody {
   @ApiProperty()
   @IsUUID('4')

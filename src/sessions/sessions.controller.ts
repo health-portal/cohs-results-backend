@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 import {
   AssignCourseToSessionBody,
@@ -7,6 +16,7 @@ import {
   CreateSessionBody,
   DeptAndLevelRes,
   SessionRes,
+  UpdateSessionBody,
 } from './sessions.schema';
 import {
   ApiBadRequestResponse,
@@ -40,6 +50,26 @@ export class SessionsController {
   @Post()
   async createSession(@Body() body: CreateSessionBody) {
     return await this.sessionsService.createSession(body);
+  }
+
+  @ApiOperation({ summary: 'Update a session' })
+  @ApiBody({ type: UpdateSessionBody })
+  @ApiOkResponse({ description: 'Session updated successfully' })
+  @ApiNotFoundResponse({ description: 'Session not found' })
+  @Patch(':sessionId')
+  async updateSession(
+    @Param('sessionId') sessionId: string,
+    @Body() body: UpdateSessionBody,
+  ) {
+    return await this.sessionsService.updateSession(sessionId, body);
+  }
+
+  @ApiOperation({ summary: 'Delete a session' })
+  @ApiOkResponse({ description: 'Session deleted successfully' })
+  @ApiNotFoundResponse({ description: 'Session not found' })
+  @Delete(':sessionId')
+  async deleteSession(@Param('sessionId') sessionId: string) {
+    return await this.sessionsService.deleteSession(sessionId);
   }
 
   @ApiOperation({ summary: 'Get all sessions' })

@@ -10,6 +10,7 @@ import {
   AssignLecturersBody,
   CreateSessionBody,
   DeptAndLevelRes,
+  UpdateSessionBody,
 } from './sessions.schema';
 import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
 
@@ -28,6 +29,23 @@ export class SessionsService {
 
     return await this.prisma.session.create({
       data: { academicYear, startDate, endDate },
+    });
+  }
+
+  async updateSession(
+    sessionId: string,
+    { academicYear, startDate, endDate }: UpdateSessionBody,
+  ) {
+    return await this.prisma.session.update({
+      where: { id: sessionId },
+      data: { academicYear, startDate, endDate },
+    });
+  }
+
+  async deleteSession(sessionId: string) {
+    return await this.prisma.session.update({
+      where: { id: sessionId },
+      data: { deletedAt: new Date() },
     });
   }
 
