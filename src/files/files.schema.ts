@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { FileCategory } from '@prisma/client';
-import { UserRes } from 'src/auth/auth.schema';
 import { CreateCoursesRes } from 'src/courses/courses.schema';
 import {
   CreateLecturersRes,
@@ -76,6 +75,6 @@ export class FileRes {
   @ApiProperty({ nullable: true })
   filename: string | null;
 
-  @ApiProperty({ type: UserRes })
-  user: UserRes;
+  @ApiProperty({ type: Boolean })
+  isProcessed: boolean;
 }

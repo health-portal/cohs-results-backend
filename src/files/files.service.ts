@@ -59,7 +59,6 @@ export class FilesService {
         metadata: true,
         category: true,
         isProcessed: true,
-        user: { select: { id: true, email: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
