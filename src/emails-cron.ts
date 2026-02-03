@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { MessageQueueCronModule } from './message-queue/message-queue.cron';
+import { MessageQueueEmailsCronModule } from './message-queue/message-queue.emails-cron';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(
-    MessageQueueCronModule,
+    MessageQueueEmailsCronModule,
     {
       logger: ['error', 'warn', 'log'],
     },

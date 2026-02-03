@@ -1,0 +1,49 @@
+name: PG Boss Cron for Files
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: pg-boss-worker
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    environment: CoHS Result Staging 
+    timeout-minutes: 6
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        
+      - name: Generate Prisma Client
+        run: npm run generate
+
+      - name: Run message queue cron for files
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEFAULT_ADMINS: ${{ secrets.DEFAULT_ADMINS }}
+          FRONTEND_BASE_URL: ${{ secrets.FRONTEND_BASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PORT: ${{ secrets.PORT }}
+          SMTPEXPRESS_PROJECT_ID: ${{ secrets.SMTPEXPRESS_PROJECT_ID }}
+          SMTPEXPRESS_PROJECT_SECRET: ${{ secrets.SMTPEXPRESS_PROJECT_SECRET }}
+          SMTPEXPRESS_SENDER_EMAIL: ${{ secrets.SMTPEXPRESS_SENDER_EMAIL }}
+
+        run: |
+          node dist/files-cron.js

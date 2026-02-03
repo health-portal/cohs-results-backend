@@ -1,4 +1,4 @@
-name: PG Boss Cron
+name: PG Boss Cron for Emails
 
 on:
   schedule:
@@ -13,7 +13,7 @@ jobs:
   worker:
     runs-on: ubuntu-latest
     environment: CoHS Result Staging 
-    timeout-minutes: 6
+    timeout-minutes: 2
 
     steps:
       - name: Checkout repository
@@ -34,7 +34,7 @@ jobs:
       - name: Generate Prisma Client
         run: npm run generate
 
-      - name: Run message queue cron
+      - name: Run message queue cron for emails
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DEFAULT_ADMINS: ${{ secrets.DEFAULT_ADMINS }}
@@ -46,4 +46,4 @@ jobs:
           SMTPEXPRESS_SENDER_EMAIL: ${{ secrets.SMTPEXPRESS_SENDER_EMAIL }}
 
         run: |
-          node dist/cron.js
+          node dist/emails-cron.js
