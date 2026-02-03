@@ -11,6 +11,7 @@ import {
   Post,
   UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { LecturerService } from './lecturer.service';
 import { User } from 'src/auth/user.decorator';
@@ -28,6 +29,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -35,6 +37,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CourseSessionRes } from 'src/sessions/sessions.schema';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
@@ -80,6 +83,19 @@ export class LecturerController {
     );
   }
 
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @Post('courses-sessions/:courseSessionId/students/batch')
   async uploadFileForStudentRegistrations(
     @User() user: UserPayload,
@@ -109,6 +125,19 @@ export class LecturerController {
     );
   }
 
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @Post('courses-sessions/:courseSessionId/results')
   async uploadFileForStudentResults(
     @User() user: UserPayload,

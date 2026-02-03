@@ -12,6 +12,7 @@ import {
   Query,
   UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { LecturersService } from './lecturers.service';
 import {
@@ -31,11 +32,13 @@ import {
   ApiBearerAuth,
   ApiTags,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('lecturers', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -56,6 +59,19 @@ export class LecturersController {
   }
 
   @ApiOperation({ summary: 'Create lecturers via a file' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @Post('batch')
   async uploadFileForLecturers(
     @User('sub') userId: string,

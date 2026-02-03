@@ -11,6 +11,7 @@ import {
   Post,
   UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -25,6 +26,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -34,6 +36,7 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('students', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -54,6 +57,19 @@ export class StudentsController {
   }
 
   @ApiOperation({ summary: 'Create students via a file' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @Post('batch')
   async uploadFileForStudents(
     @User('sub') userId: string,

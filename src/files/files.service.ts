@@ -484,6 +484,7 @@ export class FilesService {
           Phone: 'phone',
           Department: 'department',
           Title: 'title',
+          Gender: 'gender',
         };
 
       case FileCategory.STUDENTS:
