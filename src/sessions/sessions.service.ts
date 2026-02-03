@@ -121,7 +121,21 @@ export class SessionsService {
         updatedAt: true,
         session: true,
         gradingSystem: true,
-        deptsAndLevels: true,
+        deptsAndLevels: {
+          select: {
+            id: true,
+            level: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+                maxLevel: true,
+                faculty: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
         course: {
           select: {
             id: true,
