@@ -10,6 +10,7 @@ import {
   AssignLecturersBody,
   CreateSessionBody,
   DeptAndLevelRes,
+  UpdateCourseInSessionBody,
   UpdateSessionBody,
 } from './sessions.schema';
 import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
@@ -95,6 +96,21 @@ export class SessionsService {
       skipDuplicates: true,
     });
   }
+
+  async updateCourseInSession(
+    sessionId: string,
+    courseId: string,
+    body: UpdateCourseInSessionBody,
+  ) {
+    await this.prisma.courseSession.update({
+      where: { uniqueCourseSession: { sessionId, courseId } },
+      data: {
+        gradingSystemId: body.gradingSystemId,
+      },
+    });
+  }
+
+  // TODO: Implement delete for course session after approvals
 
   async getCoursesInSession(sessionId: string) {
     const foundCourseSessions = await this.prisma.courseSession.findMany({

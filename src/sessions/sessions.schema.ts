@@ -51,6 +51,12 @@ export class AssignCourseToSessionBody {
   gradingSystemId: string;
 }
 
+export class UpdateCourseInSessionBody {
+  @ApiProperty()
+  @IsUUID('4')
+  gradingSystemId: string;
+}
+
 export class AssignLecturersBody {
   @ApiProperty()
   @IsArray()

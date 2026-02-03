@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
@@ -16,6 +17,7 @@ import {
   CreateSessionBody,
   DeptAndLevelRes,
   SessionRes,
+  UpdateCourseInSessionBody,
   UpdateSessionBody,
 } from './sessions.schema';
 import {
@@ -97,6 +99,23 @@ export class SessionsController {
     @Body() body: AssignCourseToSessionBody[],
   ) {
     return await this.sessionsService.assignCoursesToSession(sessionId, body);
+  }
+
+  @ApiOperation({ summary: 'Update course in a session' })
+  @ApiBody({ type: UpdateCourseInSessionBody })
+  @ApiCreatedResponse({ description: 'Course updated successfully' })
+  @ApiNotFoundResponse({ description: 'Session not found' })
+  @Patch(':sessionId/courses/:courseId')
+  async updateCourseInSession(
+    @Param('sessionId') sessionId: string,
+    @Param('courseId') courseId: string,
+    @Body() body: UpdateCourseInSessionBody,
+  ) {
+    return await this.sessionsService.updateCourseInSession(
+      sessionId,
+      courseId,
+      body,
+    );
   }
 
   @ApiOperation({ summary: 'Get courses assigned to a session' })
