@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Put,
   UseGuards,
 } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
@@ -103,7 +102,7 @@ export class SessionsController {
 
   @ApiOperation({ summary: 'Update course in a session' })
   @ApiBody({ type: UpdateCourseInSessionBody })
-  @ApiCreatedResponse({ description: 'Course updated successfully' })
+  @ApiOkResponse({ description: 'Course updated successfully' })
   @ApiNotFoundResponse({ description: 'Session not found' })
   @Patch(':sessionId/courses/:courseId')
   async updateCourseInSession(
