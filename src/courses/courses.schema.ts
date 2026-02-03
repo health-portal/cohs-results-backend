@@ -42,6 +42,9 @@ export class CreateCourseBody {
   units: number;
 
   @ApiProperty({ enum: Semester })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsEnum(Semester)
   semester: Semester;
 }

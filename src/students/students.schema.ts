@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Gender, Level, StudentStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -41,6 +42,9 @@ export class CreateStudentBody {
   department: string;
 
   @ApiProperty()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsEnum(Level)
   level: Level;
 
@@ -49,6 +53,9 @@ export class CreateStudentBody {
   admissionYear: string;
 
   @ApiProperty({ enum: Gender })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsEnum(Gender)
   gender: Gender;
 
@@ -80,6 +87,9 @@ export class UpdateStudentBody {
   department?: string;
 
   @ApiProperty()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsEnum(Level)
   level?: Level;
 
