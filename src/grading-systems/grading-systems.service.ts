@@ -6,15 +6,11 @@ import {
   UpsertGradingComputationsBody,
   UpsertGradingRangesBody,
   GradingSystemRes,
+  GradingComputation,
 } from './grading-systems.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'expr-eval';
-import {
-  GradingComputation,
-  GradingField,
-  GradingRange,
-  ResultType,
-} from '@prisma/client';
+import { GradingField, GradingRange, ResultType } from '@prisma/client';
 
 @Injectable()
 export class GradingSystemsService {
@@ -42,7 +38,7 @@ export class GradingSystemsService {
     });
   }
 
-  async getGradingSystems(): Promise<GradingSystemRes[]> {
+  async getGradingSystems() {
     const foundGradingSystems = await this.prisma.gradingSystem.findMany({
       where: { deletedAt: null },
       select: {
@@ -97,7 +93,7 @@ export class GradingSystemsService {
       updatedAt: foundGradingSystem.updatedAt,
       deletedAt: foundGradingSystem.deletedAt,
       name: foundGradingSystem.name,
-      description: foundGradingSystem.description,
+      description: foundGradingSystem.description ?? '',
       threshold: foundGradingSystem.threshold,
       fieldsCount: foundGradingSystem._count.fields,
       computationsCount: foundGradingSystem._count.computations,
@@ -142,10 +138,37 @@ export class GradingSystemsService {
 
     await this.prisma.gradingField.deleteMany({ where: { gradingSystemId } });
     await this.prisma.gradingField.createMany({
-      data: fields.map((field) => ({
+      data: fields.map((field) => {
+        return {
+          gradingSystemId,
+          label: field.label,
+          maxScore: field.maxScore,
+          weight: field.weight,
+          variable: field.variable,
+          description: field.description ?? '',
+        };
+      }),
+    });
+
+    // Create or update the total computation
+    await this.prisma.gradingComputation.upsert({
+      where: {
+        gradingSystemId_label_variable: {
+          gradingSystemId,
+          label: 'Total',
+          variable: 'total',
+        },
+      },
+      create: {
         gradingSystemId,
-        ...field,
-      })),
+        label: 'Total',
+        variable: 'total',
+        description: 'Total score',
+        expression: fields.map((field) => field.variable).join(' + '),
+      },
+      update: {
+        expression: fields.map((field) => field.variable).join(' + '),
+      },
     });
   }
 
@@ -159,10 +182,33 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { computations }: UpsertGradingComputationsBody,
   ) {
-    if (!this.hasUniqueValues(computations, 'variable'))
+    const totalGradingComputation =
+      await this.prisma.gradingComputation.findUnique({
+        where: {
+          gradingSystemId_label_variable: {
+            gradingSystemId,
+            label: 'Total',
+            variable: 'total',
+          },
+        },
+      });
+    if (!totalGradingComputation)
+      throw new BadRequestException('Grading fields have not been created');
+
+    const computationsWithTotal: GradingComputation[] = [
+      ...computations,
+      {
+        description: totalGradingComputation.description,
+        expression: totalGradingComputation.expression,
+        label: totalGradingComputation.label,
+        variable: totalGradingComputation.variable,
+      },
+    ];
+
+    if (!this.hasUniqueValues(computationsWithTotal, 'variable'))
       throw new BadRequestException('Variable names must be unique');
 
-    if (!this.hasUniqueValues(computations, 'label'))
+    if (!this.hasUniqueValues(computationsWithTotal, 'label'))
       throw new BadRequestException('Labels must be unique');
 
     const foundGradingFields = await this.getGradingFields(gradingSystemId);
@@ -172,7 +218,7 @@ export class GradingSystemsService {
     const variablesSuperset = new Set([...variables, 'units']);
 
     const parser = new Parser();
-    for (const computation of computations) {
+    for (const computation of computationsWithTotal) {
       const parsedExpression = parser.parse(computation.expression);
       const parsedVariables = parsedExpression.variables();
       const invalidVariables = parsedVariables.filter(
@@ -207,10 +253,30 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { ranges }: UpsertGradingRangesBody,
   ) {
+    const gradingSytem = await this.prisma.gradingSystem.findUniqueOrThrow({
+      where: { id: gradingSystemId },
+      select: {
+        threshold: true,
+        _count: {
+          select: {
+            fields: true,
+          },
+        },
+      },
+    });
+
+    if (!gradingSytem._count.fields)
+      throw new BadRequestException('Grading fields not set');
+
     if (!this.hasUniqueValues(ranges, 'label'))
       throw new BadRequestException('Labels must be unique');
 
     const sortedRanges = ranges.sort((a, b) => a.minScore - b.minScore);
+    if (sortedRanges[0].minScore !== gradingSytem.threshold)
+      throw new BadRequestException(
+        `Ranges must start from grading system threshold: ${gradingSytem.threshold}`,
+      );
+
     for (let i = 0; i < sortedRanges.length - 1; i++) {
       if (sortedRanges[i].maxScore !== sortedRanges[i + 1].minScore - 1)
         throw new BadRequestException('Ranges must be non-overlapping');

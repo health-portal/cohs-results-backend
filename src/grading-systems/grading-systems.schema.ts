@@ -116,6 +116,7 @@ export class GradingRange {
 
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty()
@@ -145,7 +146,7 @@ export class GradingSystemRes {
   name: string;
 
   @ApiProperty({ nullable: true })
-  description: string | null;
+  description?: string;
 
   @ApiProperty()
   threshold: number;

@@ -337,7 +337,7 @@ model GradingComputation {
     updatedAt DateTime @updatedAt
 
     label       String
-    description String?
+    description String
     variable    String
     expression  String
 
@@ -355,7 +355,7 @@ model GradingRange {
     updatedAt DateTime @updatedAt
 
     label       String
-    description String?
+    description String
     minScore    Float
     maxScore    Float
 
