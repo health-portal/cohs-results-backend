@@ -220,3 +220,11 @@ export class LecturerProfileRes {
   @ApiProperty({ nullable: true })
   qualification: string | null;
 }
+
+export class CourseLecturerRes {
+  @ApiProperty()
+  isCoordinator: boolean;
+
+  @ApiProperty({ type: LecturerProfileRes })
+  lecturer: LecturerProfileRes;
+}

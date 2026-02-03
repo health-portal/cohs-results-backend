@@ -13,7 +13,7 @@ import {
   UpdateCourseInSessionBody,
   UpdateSessionBody,
 } from './sessions.schema';
-import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
+import { CourseLecturerRes } from 'src/lecturers/lecturers.schema';
 
 @Injectable()
 export class SessionsService {
@@ -193,10 +193,11 @@ export class SessionsService {
   async getCourseLecturers(
     sessionId: string,
     courseId: string,
-  ): Promise<LecturerProfileRes[]> {
+  ): Promise<CourseLecturerRes[]> {
     const foundCourseLecturers = await this.prisma.courseLecturer.findMany({
       where: { courseSession: { courseId, sessionId } },
       select: {
+        isCoordinator: true,
         lecturer: {
           select: {
             id: true,
@@ -214,15 +215,18 @@ export class SessionsService {
     });
 
     return foundCourseLecturers.map((courseLecturer) => ({
-      id: courseLecturer.lecturer.id,
-      firstName: courseLecturer.lecturer.firstName,
-      lastName: courseLecturer.lecturer.lastName,
-      otherName: courseLecturer.lecturer.otherName,
-      phone: courseLecturer.lecturer.phone,
-      title: courseLecturer.lecturer.title,
-      qualification: courseLecturer.lecturer.qualification,
-      department: courseLecturer.lecturer.department.name,
-      email: courseLecturer.lecturer.user.email,
+      isCoordinator: courseLecturer.isCoordinator,
+      lecturer: {
+        id: courseLecturer.lecturer.id,
+        firstName: courseLecturer.lecturer.firstName,
+        lastName: courseLecturer.lecturer.lastName,
+        otherName: courseLecturer.lecturer.otherName,
+        phone: courseLecturer.lecturer.phone,
+        title: courseLecturer.lecturer.title,
+        qualification: courseLecturer.lecturer.qualification,
+        department: courseLecturer.lecturer.department.name,
+        email: courseLecturer.lecturer.user.email,
+      },
     }));
   }
 

@@ -34,7 +34,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CourseRes } from 'src/courses/courses.schema';
-import { LecturerProfileRes } from 'src/lecturers/lecturers.schema';
+import { CourseLecturerRes } from 'src/lecturers/lecturers.schema';
 
 @ApiTags('sessions', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -145,7 +145,7 @@ export class SessionsController {
   }
 
   @ApiOperation({ summary: 'Get lecturers assigned to a course' })
-  @ApiOkResponse({ type: [LecturerProfileRes] })
+  @ApiOkResponse({ type: [CourseLecturerRes] })
   @ApiNotFoundResponse({ description: 'Session or course not found' })
   @Get(':sessionId/courses/:courseId/lecturers')
   async getCourseLecturers(
