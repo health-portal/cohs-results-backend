@@ -111,6 +111,18 @@ export class EditResultBody {
   scores: Record<string, number>;
 }
 
+export class GetLecturersQuery {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  title?: string;
+}
+
 export class UploadResultRow {
   @ApiProperty()
   @IsString()

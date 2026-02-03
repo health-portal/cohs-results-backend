@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   CreateLecturerBody,
   type UpdateLecturerBody,
   LecturerProfileRes,
+  GetLecturersQuery,
 } from './lecturers.schema';
 import {
   ApiBadRequestResponse,
@@ -28,6 +30,7 @@ import {
   ApiConflictResponse,
   ApiBearerAuth,
   ApiTags,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -76,10 +79,11 @@ export class LecturersController {
   }
 
   @ApiOperation({ summary: 'Get all lecturers' })
+  @ApiQuery({ type: GetLecturersQuery })
   @ApiOkResponse({ type: [LecturerProfileRes] })
   @Get()
-  async getLecturers() {
-    return await this.lecturersService.getLecturers();
+  async getLecturers(@Query() query: GetLecturersQuery) {
+    return await this.lecturersService.getLecturers(query);
   }
 
   @ApiOperation({ summary: 'Update a lecturer' })

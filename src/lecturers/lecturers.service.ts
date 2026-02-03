@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateLecturerBody, UpdateLecturerBody } from './lecturers.schema';
-import { FileCategory, UserRole } from '@prisma/client';
+import {
+  CreateLecturerBody,
+  GetLecturersQuery,
+  UpdateLecturerBody,
+} from './lecturers.schema';
+import { FileCategory, Prisma, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 
 @Injectable()
@@ -65,9 +69,28 @@ export class LecturersService {
     });
   }
 
-  async getLecturers() {
+  async getLecturers(query: GetLecturersQuery) {
+    const where: Prisma.LecturerWhereInput = {
+      deletedAt: null,
+    };
+
+    if (query.title) {
+      where.title = {
+        contains: query.title,
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.department) {
+      where.department = {
+        name: {
+          contains: query.department,
+          mode: 'insensitive',
+        },
+      };
+    }
     const foundLecturers = await this.prisma.lecturer.findMany({
-      where: { deletedAt: null },
+      where,
       select: {
         id: true,
         firstName: true,
