@@ -5,6 +5,7 @@ import {
   type Level,
   type ResultType,
 } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -36,6 +37,9 @@ export class CreateLecturerBody {
   otherName?: string;
 
   @ApiProperty({ enum: Gender })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsEnum(Gender)
   gender: Gender;
 
