@@ -13,7 +13,7 @@ export class AdminService {
   ) {}
 
   async addAdmin({ email, name }: AddAdminBody) {
-    const createdUser = await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email,
         role: UserRole.ADMIN,
@@ -24,15 +24,15 @@ export class AdminService {
     await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: true,
       tokenPayload: {
-        email: createdUser.email,
+        email: user.email,
         role: UserRole.ADMIN,
-        sub: createdUser.id,
+        sub: user.id,
       },
     });
   }
 
   async getAdmins(): Promise<AdminProfileRes[]> {
-    const foundAdmins = await this.prisma.admin.findMany({
+    const admins = await this.prisma.admin.findMany({
       select: {
         id: true,
         name: true,
@@ -41,7 +41,7 @@ export class AdminService {
       },
     });
 
-    return foundAdmins.map((admin) => ({
+    return admins.map((admin) => ({
       id: admin.id,
       name: admin.name,
       phone: admin.phone,
@@ -51,7 +51,7 @@ export class AdminService {
   }
 
   async getProfile(adminId: string): Promise<AdminProfileRes> {
-    const foundAdmin = await this.prisma.admin.findUniqueOrThrow({
+    const admin = await this.prisma.admin.findUniqueOrThrow({
       where: { id: adminId },
       select: {
         id: true,
@@ -62,11 +62,11 @@ export class AdminService {
     });
 
     return {
-      id: foundAdmin.id,
-      name: foundAdmin.name,
-      phone: foundAdmin.phone,
-      email: foundAdmin.user.email,
-      isActivated: !!foundAdmin.user.password,
+      id: admin.id,
+      name: admin.name,
+      phone: admin.phone,
+      email: admin.user.email,
+      isActivated: !!admin.user.password,
     };
   }
 
@@ -74,12 +74,6 @@ export class AdminService {
     await this.prisma.admin.update({
       data: { name: body.name, phone: body.phone },
       where: { id: adminId },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        user: { select: { email: true } },
-      },
     });
   }
 }

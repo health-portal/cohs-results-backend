@@ -14,11 +14,9 @@ import {
   AssignDeptAndLevelBody,
   AssignLecturersBody,
   CreateSessionBody,
-  DeptAndLevelRes,
-  SessionRes,
   UpdateCourseInSessionBody,
   UpdateSessionBody,
-} from './sessions.schema';
+} from './sessions.dto';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -33,8 +31,12 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { CourseRes } from 'src/courses/courses.schema';
-import { CourseLecturerRes } from 'src/lecturers/lecturers.schema';
+import {
+  CourseLecturerRes,
+  DeptAndLevelRes,
+  SessionRes,
+} from './sessions.responses';
+import { CourseRes } from 'src/courses/courses.responses';
 
 @ApiTags('sessions', 'Admin')
 @ApiBearerAuth('accessToken')

@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  EnrollmentStatus,
-  Gender,
-  type Level,
-  type ResultType,
-} from '@prisma/client';
+import { Gender } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -14,7 +9,6 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { ParseCsvData } from 'src/files/files.schema';
 
 export class CreateLecturerBody {
   @ApiProperty()
@@ -99,16 +93,6 @@ export class UpdateLecturerBody {
   title?: string;
 }
 
-export class CreateLecturerRes extends CreateLecturerBody {
-  @ApiProperty()
-  isCreated: boolean;
-}
-
-export class CreateLecturersRes extends ParseCsvData<CreateLecturerBody> {
-  @ApiProperty({ type: [CreateLecturerRes] })
-  lecturers: CreateLecturerRes[];
-}
-
 export class EditResultBody {
   @ApiProperty()
   @IsObject()
@@ -138,14 +122,6 @@ export class UploadResultRow {
   scores: Record<string, number>;
 }
 
-export class UploadResultsRes extends ParseCsvData<UploadResultRow> {
-  @ApiProperty()
-  studentsUploadedFor: string[];
-
-  @ApiProperty()
-  studentsNotFound: string[];
-}
-
 export class RegisterStudentBody {
   @ApiProperty()
   @IsString()
@@ -155,80 +131,4 @@ export class RegisterStudentBody {
   @ApiProperty({ type: Object })
   @IsObject()
   scores: Record<string, number>;
-}
-
-export class RegisterStudentsRes extends ParseCsvData<RegisterStudentBody> {
-  @ApiProperty()
-  registeredStudents: string[];
-
-  @ApiProperty()
-  unregisteredStudents: string[];
-}
-
-class Result {
-  @ApiProperty()
-  scores: object;
-
-  @ApiProperty()
-  type: ResultType;
-}
-
-export class EnrollmentRes {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty({ enum: EnrollmentStatus })
-  status: EnrollmentStatus;
-
-  @ApiProperty()
-  studentId: string;
-
-  @ApiProperty()
-  studentName: string;
-
-  @ApiProperty()
-  studentLevel: Level;
-
-  @ApiProperty()
-  studentDepartment: string;
-
-  @ApiProperty({ type: [Result], nullable: true })
-  results: Result[] | null;
-}
-
-export class LecturerProfileRes {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  email: string;
-
-  @ApiProperty()
-  firstName: string;
-
-  @ApiProperty()
-  lastName: string;
-
-  @ApiProperty({ nullable: true })
-  otherName: string | null;
-
-  @ApiProperty({ nullable: true })
-  phone: string | null;
-
-  @ApiProperty()
-  department: string;
-
-  @ApiProperty({ nullable: true })
-  title: string | null;
-
-  @ApiProperty({ nullable: true })
-  qualification: string | null;
-}
-
-export class CourseLecturerRes {
-  @ApiProperty()
-  isCoordinator: boolean;
-
-  @ApiProperty({ type: LecturerProfileRes })
-  lecturer: LecturerProfileRes;
 }

@@ -1,12 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsArray,
-  IsInt,
-  IsNotEmpty,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
 
 export class CreateGradingSystemBody {
   @ApiProperty()
@@ -42,7 +35,7 @@ export class UpdateGradingSystemBody {
   threshold?: number;
 }
 
-export class GradingField {
+export class UpsertGradingFieldBody {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -55,7 +48,7 @@ export class GradingField {
 
   @ApiProperty()
   @IsInt()
-  maxScore: number;
+  maxValue: number;
 
   @ApiProperty()
   @IsInt()
@@ -64,16 +57,7 @@ export class GradingField {
   weight: number;
 }
 
-export class UpsertGradingFieldsBody {
-  @ApiProperty({
-    type: GradingField,
-    isArray: true,
-  })
-  @IsArray()
-  fields: GradingField[];
-}
-
-export class GradingRange {
+export class UpsertGradingRangeBody {
   @ApiProperty()
   @IsString()
   label: string;
@@ -94,45 +78,4 @@ export class GradingRange {
   @Min(1)
   @Max(100)
   maxScore: number;
-}
-
-export class UpsertGradingRangesBody {
-  @ApiProperty({
-    type: GradingRange,
-    isArray: true,
-  })
-  @IsArray()
-  ranges: GradingRange[];
-}
-
-export class GradingSystemRes {
-  @ApiProperty()
-  name: string;
-
-  @ApiProperty({ nullable: true })
-  description?: string;
-
-  @ApiProperty()
-  threshold: number;
-
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty({ type: 'string', format: 'date-time' })
-  createdAt: Date;
-
-  @ApiProperty({ type: 'string', format: 'date-time' })
-  updatedAt: Date;
-
-  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
-  deletedAt: Date | null;
-
-  @ApiProperty()
-  fieldsCount: number;
-
-  @ApiProperty()
-  computationsCount: number;
-
-  @ApiProperty()
-  rangesCount: number;
 }

@@ -1,12 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { FileCategory } from '@prisma/client';
-import { CreateCoursesRes } from 'src/courses/courses.schema';
+import { CreateCoursesRes } from 'src/courses/courses.responses';
 import {
   CreateLecturersRes,
   RegisterStudentsRes,
   UploadResultsRes,
-} from 'src/lecturers/lecturers.schema';
-import { CreateStudentRes } from 'src/students/students.schema';
+} from 'src/lecturers/lecturers.responses';
+import { CreateStudentRes } from 'src/students/students.responses';
 
 export enum FileErrorMessage {
   INVALID_HEADERS = 'Invalid headers',
@@ -51,30 +50,4 @@ export class ParseCsvData<T extends object> {
 export class ProvideAltHeaderMappingsBody {
   @ApiProperty({ type: [Object] })
   altHeaderMappings: Record<string, string>;
-}
-
-export class FileRes {
-  @ApiProperty({ nullable: true })
-  description: string | null;
-
-  @ApiProperty({ nullable: true })
-  mimetype: string | null;
-
-  @ApiProperty({ enum: FileCategory })
-  category: FileCategory;
-
-  @ApiProperty({ nullable: true })
-  metadata: object | null;
-
-  @ApiProperty({ nullable: true })
-  id: string | null;
-
-  @ApiProperty({ nullable: true })
-  createdAt: Date | null;
-
-  @ApiProperty({ nullable: true })
-  filename: string | null;
-
-  @ApiProperty({ type: Boolean })
-  isProcessed: boolean;
 }

@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CourseRes,
-  CreateCourseBody,
-  UpdateCourseBody,
-} from './courses.schema';
+import { CreateCourseBody, UpdateCourseBody } from './courses.dto';
 import { FileCategory } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { CourseRes } from './courses.responses';
 
 @Injectable()
 export class CoursesService {
@@ -52,7 +49,7 @@ export class CoursesService {
   }
 
   async getCourses(): Promise<CourseRes[]> {
-    return await this.prisma.course.findMany({
+    const courses = await this.prisma.course.findMany({
       where: { deletedAt: null },
       select: {
         id: true,
@@ -63,19 +60,25 @@ export class CoursesService {
         units: true,
         department: {
           select: {
-            id: true,
             name: true,
-            shortName: true,
-            maxLevel: true,
-            faculty: { select: { id: true, name: true } },
           },
         },
       },
     });
+
+    return courses.map((course) => ({
+      id: course.id,
+      code: course.code,
+      title: course.title,
+      description: course.description,
+      semester: course.semester,
+      units: course.units,
+      department: course.department.name,
+    }));
   }
 
   async getCourse(courseId: string): Promise<CourseRes> {
-    return await this.prisma.course.findUniqueOrThrow({
+    const course = await this.prisma.course.findUniqueOrThrow({
       where: { id: courseId },
       select: {
         id: true,
@@ -86,15 +89,21 @@ export class CoursesService {
         units: true,
         department: {
           select: {
-            id: true,
             name: true,
-            shortName: true,
-            maxLevel: true,
-            faculty: { select: { id: true, name: true } },
           },
         },
       },
     });
+
+    return {
+      id: course.id,
+      code: course.code,
+      title: course.title,
+      description: course.description,
+      semester: course.semester,
+      units: course.units,
+      department: course.department.name,
+    };
   }
 
   async updateCourse(

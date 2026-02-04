@@ -13,11 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
-import {
-  CourseRes,
-  CreateCourseBody,
-  UpdateCourseBody,
-} from './courses.schema';
+import { CreateCourseBody, UpdateCourseBody } from './courses.dto';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -36,6 +32,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CourseRes } from './courses.responses';
 
 @ApiTags('courses', 'Admin')
 @ApiBearerAuth('accessToken')

@@ -14,7 +14,7 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { AdminData, type UserPayload } from 'src/auth/auth.schema';
+import { AdminData, type UserPayload } from 'src/auth/auth.dto';
 import { AdminProfileRes } from './admin.responses';
 
 @ApiTags('admin', 'Admin')

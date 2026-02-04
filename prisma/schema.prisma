@@ -319,7 +319,7 @@ model GradingField {
     label       String
     description String
     variable    String
-    maxScore    Float
+    maxValue    Float
     weight      Float
 
     gradingSystemId String

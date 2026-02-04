@@ -2,12 +2,17 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   CreateGradingSystemBody,
   UpdateGradingSystemBody,
-  UpsertGradingFieldsBody,
-  UpsertGradingRangesBody,
-} from './grading-systems.schema';
+  UpsertGradingFieldBody,
+  UpsertGradingRangeBody,
+} from './grading-systems.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { GradingField, GradingRange, ResultType } from '@prisma/client';
 import * as changeCase from 'change-case';
+import {
+  GradingFieldRes,
+  GradingRangeRes,
+  GradingSystemRes,
+} from './grading-systems.responses';
 
 @Injectable()
 export class GradingSystemsService {
@@ -35,8 +40,8 @@ export class GradingSystemsService {
     });
   }
 
-  async getGradingSystems() {
-    const foundGradingSystems = await this.prisma.gradingSystem.findMany({
+  async getGradingSystems(): Promise<GradingSystemRes[]> {
+    const gradingSystems = await this.prisma.gradingSystem.findMany({
       where: { deletedAt: null },
       select: {
         id: true,
@@ -52,7 +57,7 @@ export class GradingSystemsService {
       },
     });
 
-    return foundGradingSystems.map((gradingSystem) => ({
+    return gradingSystems.map((gradingSystem) => ({
       id: gradingSystem.id,
       createdAt: gradingSystem.createdAt,
       updatedAt: gradingSystem.updatedAt,
@@ -66,33 +71,32 @@ export class GradingSystemsService {
   }
 
   async getGradingSystem(gradingSystemId: string) {
-    const foundGradingSystem =
-      await this.prisma.gradingSystem.findUniqueOrThrow({
-        where: { id: gradingSystemId },
-        select: {
-          id: true,
-          createdAt: true,
-          updatedAt: true,
-          deletedAt: true,
-          name: true,
-          description: true,
-          threshold: true,
-          _count: {
-            select: { fields: true, ranges: true },
-          },
+    const gradingSystem = await this.prisma.gradingSystem.findUniqueOrThrow({
+      where: { id: gradingSystemId },
+      select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        name: true,
+        description: true,
+        threshold: true,
+        _count: {
+          select: { fields: true, ranges: true },
         },
-      });
+      },
+    });
 
     return {
-      id: foundGradingSystem.id,
-      createdAt: foundGradingSystem.createdAt,
-      updatedAt: foundGradingSystem.updatedAt,
-      deletedAt: foundGradingSystem.deletedAt,
-      name: foundGradingSystem.name,
-      description: foundGradingSystem.description ?? '',
-      threshold: foundGradingSystem.threshold,
-      fieldsCount: foundGradingSystem._count.fields,
-      rangesCount: foundGradingSystem._count.ranges,
+      id: gradingSystem.id,
+      createdAt: gradingSystem.createdAt,
+      updatedAt: gradingSystem.updatedAt,
+      deletedAt: gradingSystem.deletedAt,
+      name: gradingSystem.name,
+      description: gradingSystem.description,
+      threshold: gradingSystem.threshold,
+      fieldsCount: gradingSystem._count.fields,
+      rangesCount: gradingSystem._count.ranges,
     };
   }
 
@@ -115,7 +119,7 @@ export class GradingSystemsService {
 
   async upsertGradingFields(
     gradingSystemId: string,
-    { fields }: UpsertGradingFieldsBody,
+    fields: UpsertGradingFieldBody[],
   ) {
     if (!this.hasUniqueValues(fields, 'label'))
       throw new BadRequestException('Labels must be unique');
@@ -135,7 +139,7 @@ export class GradingSystemsService {
           return {
             gradingSystemId,
             label: field.label,
-            maxScore: field.maxScore,
+            maxValue: field.maxValue,
             weight: field.weight,
             variable: changeCase.snakeCase(field.label),
             description: field.description,
@@ -145,7 +149,7 @@ export class GradingSystemsService {
     });
   }
 
-  async getGradingFields(gradingSystemId: string) {
+  async getGradingFields(gradingSystemId: string): Promise<GradingFieldRes[]> {
     return await this.prisma.gradingField.findMany({
       where: { gradingSystemId },
     });
@@ -153,7 +157,7 @@ export class GradingSystemsService {
 
   async upsertGradingRanges(
     gradingSystemId: string,
-    { ranges }: UpsertGradingRangesBody,
+    ranges: UpsertGradingRangeBody[],
   ) {
     const gradingSytem = await this.prisma.gradingSystem.findUniqueOrThrow({
       where: { id: gradingSystemId },
@@ -195,7 +199,7 @@ export class GradingSystemsService {
     });
   }
 
-  async getGradingRanges(gradingSystemId: string) {
+  async getGradingRanges(gradingSystemId: string): Promise<GradingRangeRes[]> {
     return await this.prisma.gradingRange.findMany({
       where: { gradingSystemId },
     });
@@ -212,7 +216,7 @@ export class GradingSystemsService {
     const scoresToGrade = Object.fromEntries(
       gradingSystem.fields.map((field) => [
         field.label,
-        (scores[field.variable] / field.maxScore) * field.weight, // Scale score to weight which is a percentage
+        (scores[field.variable] / field.maxValue) * field.weight, // Scale score to weight which is a percentage
       ]),
     );
 
@@ -230,7 +234,7 @@ export class GradingSystemsService {
       where: { uniqueResult: { enrollmentId, type: ResultType.INITIAL } },
       data: {
         scores,
-        evaluations: { total, Grade: matchedRange },
+        evaluations: { Total: total, Grade: matchedRange },
       },
     });
   }

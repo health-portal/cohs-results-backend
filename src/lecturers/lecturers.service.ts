@@ -4,9 +4,10 @@ import {
   CreateLecturerBody,
   GetLecturersQuery,
   UpdateLecturerBody,
-} from './lecturers.schema';
+} from './lecturers.dto';
 import { FileCategory, Prisma, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { LecturerProfileRes } from './lecturers.responses';
 
 @Injectable()
 export class LecturersService {
@@ -69,7 +70,7 @@ export class LecturersService {
     });
   }
 
-  async getLecturers(query: GetLecturersQuery) {
+  async getLecturers(query: GetLecturersQuery): Promise<LecturerProfileRes[]> {
     const where: Prisma.LecturerWhereInput = {
       deletedAt: null,
     };
@@ -89,7 +90,7 @@ export class LecturersService {
         },
       };
     }
-    const foundLecturers = await this.prisma.lecturer.findMany({
+    const lecturers = await this.prisma.lecturer.findMany({
       where,
       select: {
         id: true,
@@ -98,22 +99,17 @@ export class LecturersService {
         otherName: true,
         title: true,
         phone: true,
+        gender: true,
         qualification: true,
         department: { select: { name: true } },
         user: { select: { email: true } },
       },
     });
 
-    return foundLecturers.map((lecturer) => ({
-      id: lecturer.id,
-      firstName: lecturer.firstName,
-      lastName: lecturer.lastName,
-      otherName: lecturer.otherName,
-      phone: lecturer.phone,
-      title: lecturer.title,
-      qualification: lecturer.qualification,
-      department: lecturer.department.name,
+    return lecturers.map((lecturer) => ({
+      ...lecturer,
       email: lecturer.user.email,
+      department: lecturer.department.name,
     }));
   }
 

@@ -5,7 +5,7 @@ import {
   ParseFilePayload,
   QueueTable,
   SendEmailPayload,
-} from './message-queue.schema';
+} from './message-queue.dto';
 import { FilesModule } from 'src/files/files.module';
 import { FilesService } from 'src/files/files.service';
 import { JwtModule } from '@nestjs/jwt';

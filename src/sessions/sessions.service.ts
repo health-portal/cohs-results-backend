@@ -9,24 +9,27 @@ import {
   AssignDeptAndLevelBody,
   AssignLecturersBody,
   CreateSessionBody,
-  DeptAndLevelRes,
   UpdateCourseInSessionBody,
   UpdateSessionBody,
-} from './sessions.schema';
-import { CourseLecturerRes } from 'src/lecturers/lecturers.schema';
+} from './sessions.dto';
+import {
+  CourseLecturerRes,
+  CourseSessionRes,
+  DeptAndLevelRes,
+} from './sessions.responses';
 
 @Injectable()
 export class SessionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createSession({ academicYear, startDate, endDate }: CreateSessionBody) {
-    const foundSession = await this.prisma.session.findFirst({
+    const session = await this.prisma.session.findFirst({
       where: {
         AND: { startDate: { lte: startDate }, endDate: { gte: endDate } },
         academicYear,
       },
     });
-    if (foundSession) throw new ConflictException('Session already exists');
+    if (session) throw new ConflictException('Session already exists');
 
     return await this.prisma.session.create({
       data: { academicYear, startDate, endDate },
@@ -51,7 +54,7 @@ export class SessionsService {
   }
 
   async getSessions() {
-    const foundSessions = await this.prisma.session.findMany({
+    const sessions = await this.prisma.session.findMany({
       orderBy: { endDate: 'desc' },
       select: {
         id: true,
@@ -61,11 +64,11 @@ export class SessionsService {
       },
     });
 
-    return foundSessions;
+    return sessions;
   }
 
   async getSession(sessionId: string) {
-    const foundSession = await this.prisma.session.findUniqueOrThrow({
+    const session = await this.prisma.session.findUniqueOrThrow({
       where: { id: sessionId },
       select: {
         id: true,
@@ -76,10 +79,10 @@ export class SessionsService {
     });
 
     return {
-      id: foundSession.id,
-      academicYear: foundSession.academicYear,
-      startDate: foundSession.startDate,
-      endDate: foundSession.endDate,
+      id: session.id,
+      academicYear: session.academicYear,
+      startDate: session.startDate,
+      endDate: session.endDate,
     };
   }
 
@@ -110,50 +113,26 @@ export class SessionsService {
     });
   }
 
-  // TODO: Implement delete for course session after approvals
-
-  async getCoursesInSession(sessionId: string) {
-    const foundCourseSessions = await this.prisma.courseSession.findMany({
+  async getCoursesInSession(sessionId: string): Promise<CourseSessionRes[]> {
+    const courseSessions = await this.prisma.courseSession.findMany({
       where: { sessionId },
       select: {
         id: true,
-        createdAt: true,
-        updatedAt: true,
-        session: true,
-        gradingSystem: true,
+        session: { select: { academicYear: true } },
+        gradingSystem: { select: { name: true } },
         deptsAndLevels: {
           select: {
             id: true,
             level: true,
             department: {
               select: {
-                id: true,
                 name: true,
-                shortName: true,
-                maxLevel: true,
-                faculty: { select: { id: true, name: true } },
               },
             },
           },
         },
         course: {
-          select: {
-            id: true,
-            code: true,
-            title: true,
-            description: true,
-            semester: true,
-            units: true,
-            department: {
-              select: {
-                id: true,
-                name: true,
-                shortName: true,
-                maxLevel: true,
-                faculty: { select: { id: true, name: true } },
-              },
-            },
-          },
+          select: { code: true },
         },
         _count: {
           select: {
@@ -163,14 +142,16 @@ export class SessionsService {
       },
     });
 
-    return foundCourseSessions.map((courseSession) => ({
+    return courseSessions.map((courseSession) => ({
       id: courseSession.id,
-      createdAt: courseSession.createdAt,
-      updatedAt: courseSession.updatedAt,
-      session: courseSession.session,
-      gradingSystem: courseSession.gradingSystem,
-      deptsAndLevels: courseSession.deptsAndLevels,
-      course: courseSession.course,
+      session: courseSession.session.academicYear,
+      gradingSystem: courseSession.gradingSystem.name,
+      deptsAndLevels: courseSession.deptsAndLevels.map((deptAndLevel) => ({
+        id: deptAndLevel.id,
+        level: deptAndLevel.level,
+        department: deptAndLevel.department.name,
+      })),
+      courseCode: courseSession.course.code,
       lecturerCount: courseSession._count.lecturers,
     }));
   }
@@ -208,9 +189,10 @@ export class SessionsService {
     sessionId: string,
     courseId: string,
   ): Promise<CourseLecturerRes[]> {
-    const foundCourseLecturers = await this.prisma.courseLecturer.findMany({
+    const courseLecturers = await this.prisma.courseLecturer.findMany({
       where: { courseSession: { courseId, sessionId } },
       select: {
+        id: true,
         isCoordinator: true,
         lecturer: {
           select: {
@@ -219,8 +201,6 @@ export class SessionsService {
             lastName: true,
             otherName: true,
             title: true,
-            phone: true,
-            qualification: true,
             department: { select: { name: true } },
             user: { select: { email: true } },
           },
@@ -228,16 +208,10 @@ export class SessionsService {
       },
     });
 
-    return foundCourseLecturers.map((courseLecturer) => ({
-      isCoordinator: courseLecturer.isCoordinator,
+    return courseLecturers.map((courseLecturer) => ({
+      ...courseLecturer,
       lecturer: {
-        id: courseLecturer.lecturer.id,
-        firstName: courseLecturer.lecturer.firstName,
-        lastName: courseLecturer.lecturer.lastName,
-        otherName: courseLecturer.lecturer.otherName,
-        phone: courseLecturer.lecturer.phone,
-        title: courseLecturer.lecturer.title,
-        qualification: courseLecturer.lecturer.qualification,
+        ...courseLecturer.lecturer,
         department: courseLecturer.lecturer.department.name,
         email: courseLecturer.lecturer.user.email,
       },
@@ -273,24 +247,26 @@ export class SessionsService {
     sessionId: string,
     courseId: string,
   ): Promise<DeptAndLevelRes[]> {
-    return await this.prisma.courseSesnDeptAndLevel.findMany({
-      where: { courseSession: { courseId, sessionId } },
-      select: {
-        id: true,
-        createdAt: true,
-        updatedAt: true,
-        courseSessionId: true,
-        department: {
-          select: {
-            id: true,
-            name: true,
-            shortName: true,
-            maxLevel: true,
-            faculty: { select: { id: true, name: true } },
+    const courseSesnDeptAndLevels =
+      await this.prisma.courseSesnDeptAndLevel.findMany({
+        where: { courseSession: { courseId, sessionId } },
+        select: {
+          id: true,
+          createdAt: true,
+          updatedAt: true,
+          courseSessionId: true,
+          department: {
+            select: {
+              name: true,
+            },
           },
+          level: true,
         },
-        level: true,
-      },
-    });
+      });
+
+    return courseSesnDeptAndLevels.map((courseSesnDeptAndLevel) => ({
+      ...courseSesnDeptAndLevel,
+      department: courseSesnDeptAndLevel.department.name,
+    }));
   }
 }

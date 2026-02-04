@@ -1,6 +1,6 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
-import { ParseFilePayload, QueueTable } from './message-queue.schema';
+import { ParseFilePayload, QueueTable } from './message-queue.dto';
 import { FilesModule } from 'src/files/files.module';
 import { FilesService } from 'src/files/files.service';
 import { JwtModule } from '@nestjs/jwt';

@@ -1,5 +1,5 @@
 import { PgBoss } from 'pg-boss';
-import { QueueTable } from './message-queue.schema';
+import { QueueTable } from './message-queue.dto';
 import { Provider } from '@nestjs/common';
 import env from 'src/environment';
 

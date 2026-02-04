@@ -16,10 +16,10 @@ export class UserResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -27,7 +27,7 @@ export class UserResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   email: string;
@@ -44,10 +44,10 @@ export class AdminResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -55,7 +55,7 @@ export class AdminResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   name: string;
@@ -72,10 +72,10 @@ export class LecturerResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -83,7 +83,7 @@ export class LecturerResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   firstName: string;
@@ -118,7 +118,7 @@ export class LecturerDesignationResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ readOnly: true })
   entity: string;
@@ -135,10 +135,10 @@ export class StudentResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -146,7 +146,7 @@ export class StudentResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   matricNumber: string;
@@ -187,10 +187,10 @@ export class FacultyResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -198,7 +198,7 @@ export class FacultyResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   name: string;
@@ -209,10 +209,10 @@ export class DepartmentResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -220,7 +220,7 @@ export class DepartmentResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   name: string;
@@ -240,10 +240,10 @@ export class SessionResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -251,16 +251,16 @@ export class SessionResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   academicYear: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  startDate: string;
+  startDate: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  endDate: string;
+  endDate: Date;
 }
 
 export class CourseResponse {
@@ -268,10 +268,10 @@ export class CourseResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -279,7 +279,7 @@ export class CourseResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   code: string;
@@ -305,10 +305,10 @@ export class CourseSessionResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ readOnly: true })
   isApproved: boolean;
@@ -347,10 +347,10 @@ export class GradingSystemResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -358,7 +358,7 @@ export class GradingSystemResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   name: string;
@@ -375,10 +375,10 @@ export class GradingFieldResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ readOnly: true })
   label: string;
@@ -390,7 +390,7 @@ export class GradingFieldResponse {
   variable: string;
 
   @ApiProperty({ readOnly: true })
-  maxScore: number;
+  maxValue: number;
 
   @ApiProperty({ readOnly: true })
   weight: number;
@@ -404,10 +404,10 @@ export class GradingRangeResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ readOnly: true })
   label: string;
@@ -430,10 +430,10 @@ export class CourseLecturerResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ readOnly: true })
   isCoordinator: boolean;
@@ -450,10 +450,10 @@ export class CourseSesnDeptAndLevelResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ enum: Level, readOnly: true })
   level: Level;
@@ -470,10 +470,10 @@ export class EnrollmentResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ enum: EnrollmentStatus, readOnly: true })
   status: EnrollmentStatus;
@@ -493,10 +493,10 @@ export class ResultResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  updatedAt: string;
+  updatedAt: Date;
 
   @ApiProperty({ type: 'object', additionalProperties: true, readOnly: true })
   scores: Record<string, any>;
@@ -521,7 +521,7 @@ export class FileResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({
     type: 'string',
@@ -529,7 +529,7 @@ export class FileResponse {
     nullable: true,
     readOnly: true,
   })
-  deletedAt: string | null;
+  deletedAt: Date | null;
 
   @ApiProperty({ readOnly: true })
   filename: string;
@@ -566,7 +566,7 @@ export class AuditLogResponse {
   id: string;
 
   @ApiProperty({ type: 'string', format: 'date-time', readOnly: true })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({ readOnly: true })
   actorInfo: string;

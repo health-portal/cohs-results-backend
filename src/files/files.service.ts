@@ -12,29 +12,30 @@ import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
+import { FileRes } from './files.responses';
+import { ParseFilePayload } from 'src/message-queue/message-queue.dto';
+import { CreateStudentBody } from 'src/students/students.dto';
+import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
 import {
   FileErrorMessage,
   FileMetadata,
-  FileRes,
   ParseCsvData,
   ProvideAltHeaderMappingsBody,
   RowValidationError,
-} from './files.schema';
-import { ParseFilePayload } from 'src/message-queue/message-queue.schema';
-import { CreateCourseBody, CreateCoursesRes } from 'src/courses/courses.schema';
+} from './files.dto';
+import { CreateCoursesRes } from 'src/courses/courses.responses';
+import { CreateCourseBody } from 'src/courses/courses.dto';
+import { CreateStudentsRes } from 'src/students/students.responses';
+import {
+  CreateLecturersRes,
+  RegisterStudentsRes,
+  UploadResultsRes,
+} from 'src/lecturers/lecturers.responses';
 import {
   CreateLecturerBody,
-  CreateLecturersRes,
   RegisterStudentBody,
-  RegisterStudentsRes,
   UploadResultRow,
-  UploadResultsRes,
-} from 'src/lecturers/lecturers.schema';
-import {
-  CreateStudentBody,
-  CreateStudentsRes,
-} from 'src/students/students.schema';
-import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
+} from 'src/lecturers/lecturers.dto';
 
 @Injectable()
 export class FilesService {
@@ -48,7 +49,7 @@ export class FilesService {
   ) {}
 
   async getFiles(userId: string): Promise<FileRes[]> {
-    const foundFiles = await this.prisma.file.findMany({
+    const files = await this.prisma.file.findMany({
       where: { userId },
       select: {
         id: true,
@@ -63,7 +64,7 @@ export class FilesService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return foundFiles.map((file) => ({
+    return files.map((file) => ({
       ...file,
       metadata: file.metadata as object,
     }));
@@ -74,7 +75,7 @@ export class FilesService {
     fileId: string,
     body: ProvideAltHeaderMappingsBody,
   ) {
-    const foundFile = await this.prisma.file.findUniqueOrThrow({
+    const file = await this.prisma.file.findUniqueOrThrow({
       where: { id: fileId, userId },
     });
 
@@ -83,7 +84,7 @@ export class FilesService {
       data: {
         metadata: JSON.stringify({
           altHeaderMappings: body.altHeaderMappings,
-          ...(foundFile.metadata as FileMetadata),
+          ...(file.metadata as FileMetadata),
         }),
       },
     });
@@ -92,23 +93,23 @@ export class FilesService {
   async parseFile(payload: ParseFilePayload) {
     const { fileId } = payload;
 
-    const foundFile = await this.prisma.file.findUnique({
+    const file = await this.prisma.file.findUnique({
       where: { id: fileId },
     });
-    if (!foundFile) return;
+    if (!file) return;
 
-    const metadata = (foundFile.metadata as FileMetadata) ?? {};
+    const metadata = (file.metadata as FileMetadata) ?? {};
 
     try {
       const csvContents = this.normalizeToCsv(
-        Buffer.from(foundFile.buffer),
-        foundFile.mimetype,
+        Buffer.from(file.buffer),
+        file.mimetype,
       );
 
       const responses: unknown[] = [];
 
       for (const csvContent of csvContents) {
-        switch (foundFile.category) {
+        switch (file.category) {
           case FileCategory.COURSES:
             responses.push(await this.handleCourses(csvContent, metadata));
             break;
@@ -137,7 +138,7 @@ export class FilesService {
       }
 
       await this.prisma.file.update({
-        where: { id: foundFile.id },
+        where: { id: file.id },
         data: {
           isProcessed: true,
           metadata: JSON.stringify({
@@ -148,7 +149,7 @@ export class FilesService {
       });
     } catch (error) {
       await this.prisma.file.update({
-        where: { id: foundFile.id },
+        where: { id: file.id },
         data: {
           metadata: JSON.stringify({
             ...metadata,
@@ -314,19 +315,16 @@ export class FilesService {
       ...parsed,
     };
 
-    const foundCourseSession =
-      await this.prisma.courseSession.findUniqueOrThrow({
-        where: { id: metadata.courseSessionId },
-      });
-    const foundGradingSystem =
-      await this.prisma.gradingSystem.findUniqueOrThrow({
-        where: { id: foundCourseSession.gradingSystemId },
-        select: {
-          computations: true,
-          fields: true,
-          ranges: true,
-        },
-      });
+    const courseSession = await this.prisma.courseSession.findUniqueOrThrow({
+      where: { id: metadata.courseSessionId },
+    });
+    const gradingSystem = await this.prisma.gradingSystem.findUniqueOrThrow({
+      where: { id: courseSession.gradingSystemId },
+      select: {
+        fields: true,
+        ranges: true,
+      },
+    });
 
     for (const row of parsed.validRows) {
       try {
@@ -335,7 +333,7 @@ export class FilesService {
           select: { id: true, user: true },
         });
 
-        const foundEnrollment = await this.prisma.enrollment.findUniqueOrThrow({
+        const enrollment = await this.prisma.enrollment.findUniqueOrThrow({
           where: {
             uniqueEnrollment: {
               studentId: student.id,
@@ -344,9 +342,9 @@ export class FilesService {
           },
         });
         await this.gradingSystemService.evaluateFromScores(
-          foundEnrollment.id,
+          enrollment.id,
           row.scores,
-          foundGradingSystem,
+          gradingSystem,
         );
 
         res.studentsUploadedFor.push(row.matricNumber);
@@ -384,16 +382,18 @@ export class FilesService {
 
     for (const row of parsed.validRows) {
       try {
-        await this.prisma.courseSession.update({
-          where: { id: metadata.courseSessionId },
+        const student = await this.prisma.student.findUnique({
+          where: { matricNumber: row.matricNumber },
+        });
+        if (!student) {
+          throw new Error('Student not found');
+        }
+
+        await this.prisma.enrollment.create({
           data: {
-            enrollments: {
-              create: {
-                student: {
-                  connect: { matricNumber: row.matricNumber },
-                },
-              },
-            },
+            studentId: student.id,
+            levelAtEnrollment: student.level,
+            courseSessionId: metadata.courseSessionId,
           },
         });
 
@@ -492,7 +492,7 @@ export class FilesService {
           'Last Name': 'lastName',
           'Other Name': 'otherName',
           Email: 'email',
-          'Matric Number': 'matricNumber',
+          'Matriculation Number': 'matricNumber',
           Department: 'department',
           Degree: 'degree',
           Level: 'level',
@@ -502,17 +502,18 @@ export class FilesService {
 
       case FileCategory.REGISTRATIONS:
         return {
-          'Matric Number': 'matricNumber',
+          'Matriculation Number': 'matricNumber',
         };
 
       case FileCategory.RESULTS: {
-        const foundCourseSession =
-          await this.prisma.courseSession.findUniqueOrThrow({
+        const courseSession = await this.prisma.courseSession.findUniqueOrThrow(
+          {
             where: { id: courseSessionId },
-          });
+          },
+        );
 
         const fields = await this.prisma.gradingField.findMany({
-          where: { gradingSystemId: foundCourseSession.gradingSystemId },
+          where: { gradingSystemId: courseSession.gradingSystemId },
         });
         return Object.fromEntries(fields.map((f) => [f.label, f.variable]));
       }

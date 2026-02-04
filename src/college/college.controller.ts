@@ -9,12 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CollegeService } from './college.service';
-import {
-  CreateDepartmentBody,
-  CreateFacultyBody,
-  DepartmentRes,
-  FacultyRes,
-} from './college.schema';
+import { CreateDepartmentBody, CreateFacultyBody } from './college.dto';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -28,6 +23,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { DepartmentRes, FacultyRes } from './college.responses';
 
 @ApiTags('college', 'Admin')
 @ApiBearerAuth('accessToken')

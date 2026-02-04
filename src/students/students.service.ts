@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CreateStudentBody,
-  StudentProfileRes,
-  UpdateStudentBody,
-} from './students.schema';
+import { CreateStudentBody, UpdateStudentBody } from './students.dto';
 import { FileCategory, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { StudentProfileRes } from './students.responses';
 
 @Injectable()
 export class StudentsService {
@@ -74,7 +71,7 @@ export class StudentsService {
   }
 
   async getStudents(): Promise<StudentProfileRes[]> {
-    const foundStudents = await this.prisma.student.findMany({
+    const students = await this.prisma.student.findMany({
       select: {
         id: true,
         firstName: true,
@@ -92,24 +89,15 @@ export class StudentsService {
       where: { deletedAt: null },
     });
 
-    return foundStudents.map((student) => ({
-      id: student.id,
-      firstName: student.firstName,
-      lastName: student.lastName,
-      otherName: student.otherName,
-      matricNumber: student.matricNumber,
-      admissionYear: student.admissionYear,
-      degree: student.degree,
-      gender: student.gender,
-      level: student.level,
-      status: student.status,
+    return students.map((student) => ({
+      ...student,
       department: student.department.name,
       email: student.user.email,
     }));
   }
 
   async getStudent(studentId: string): Promise<StudentProfileRes> {
-    const foundStudent = await this.prisma.student.findUniqueOrThrow({
+    const student = await this.prisma.student.findUniqueOrThrow({
       where: { id: studentId, deletedAt: null },
       select: {
         id: true,
@@ -128,18 +116,9 @@ export class StudentsService {
     });
 
     return {
-      id: foundStudent.id,
-      firstName: foundStudent.firstName,
-      lastName: foundStudent.lastName,
-      otherName: foundStudent.otherName,
-      matricNumber: foundStudent.matricNumber,
-      admissionYear: foundStudent.admissionYear,
-      degree: foundStudent.degree,
-      gender: foundStudent.gender,
-      level: foundStudent.level,
-      status: foundStudent.status,
-      department: foundStudent.department.name,
-      email: foundStudent.user.email,
+      ...student,
+      department: student.department.name,
+      email: student.user.email,
     };
   }
 

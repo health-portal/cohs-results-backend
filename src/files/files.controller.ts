@@ -10,8 +10,9 @@ import { UserRole } from '@prisma/client';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/user.decorator';
-import { type UserPayload } from 'src/auth/auth.schema';
-import { FileRes, ProvideAltHeaderMappingsBody } from './files.schema';
+import { ProvideAltHeaderMappingsBody } from './files.dto';
+import { FileRes } from './files.responses';
+import { type UserPayload } from 'src/auth/auth.dto';
 
 @ApiTags('files', 'Admin', 'Lecturer')
 @ApiBearerAuth('accessToken')

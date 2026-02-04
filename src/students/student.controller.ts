@@ -9,8 +9,11 @@ import {
 } from '@nestjs/common';
 import { StudentService } from './student.service';
 import { User } from 'src/auth/user.decorator';
-import { type UserPayload, StudentData } from 'src/auth/auth.schema';
-import { ChangePasswordBody } from 'src/auth/auth.schema';
+import {
+  type UserPayload,
+  ChangePasswordBody,
+  StudentData,
+} from 'src/auth/auth.dto';
 import { UserRole } from '@prisma/client';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
@@ -23,8 +26,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { EnrollmentRes } from 'src/lecturers/lecturers.schema';
-import { StudentProfileRes } from './students.schema';
+import { EnrollmentRes } from 'src/lecturers/lecturers.responses';
+import { StudentProfileRes } from './students.responses';
 
 @ApiTags('student', 'Student')
 @ApiBearerAuth('accessToken')
