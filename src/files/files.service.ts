@@ -241,7 +241,10 @@ export class FilesService {
         });
 
         res.lecturers.push({ ...row, isCreated: true });
-      } catch {
+      } catch (error) {
+        this.logger.error(
+          `Failed to create lecturer ${row.email}: ${error.message}`,
+        );
         res.lecturers.push({ ...row, isCreated: false });
       }
     }
