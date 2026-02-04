@@ -62,11 +62,6 @@ export class GradingField {
   @Min(1)
   @Max(99)
   weight: number;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  variable: string;
 }
 
 export class UpsertGradingFieldsBody {
@@ -76,37 +71,6 @@ export class UpsertGradingFieldsBody {
   })
   @IsArray()
   fields: GradingField[];
-}
-
-export class GradingComputation {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  label: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  description: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  expression: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  variable: string;
-}
-
-export class UpsertGradingComputationsBody {
-  @ApiProperty({
-    type: GradingComputation,
-    isArray: true,
-  })
-  @IsArray()
-  computations: GradingComputation[];
 }
 
 export class GradingRange {

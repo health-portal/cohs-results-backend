@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AddAdminBody, AdminProfileRes, UpdateAdminBody } from './admin.schema';
+import { AddAdminBody, UpdateAdminBody } from './admin.dto';
 import { UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { AdminProfileRes } from './admin.responses';
 
 @Injectable()
 export class AdminService {
@@ -56,7 +57,7 @@ export class AdminService {
         id: true,
         name: true,
         phone: true,
-        user: { select: { email: true } },
+        user: { select: { email: true, password: true } },
       },
     });
 
@@ -65,6 +66,7 @@ export class AdminService {
       name: foundAdmin.name,
       phone: foundAdmin.phone,
       email: foundAdmin.user.email,
+      isActivated: !!foundAdmin.user.password,
     };
   }
 

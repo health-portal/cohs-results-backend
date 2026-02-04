@@ -3,14 +3,11 @@ import {
   CreateGradingSystemBody,
   UpdateGradingSystemBody,
   UpsertGradingFieldsBody,
-  UpsertGradingComputationsBody,
   UpsertGradingRangesBody,
-  GradingSystemRes,
-  GradingComputation,
 } from './grading-systems.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Parser } from 'expr-eval';
 import { GradingField, GradingRange, ResultType } from '@prisma/client';
+import * as changeCase from 'change-case';
 
 @Injectable()
 export class GradingSystemsService {
@@ -50,7 +47,7 @@ export class GradingSystemsService {
         description: true,
         threshold: true,
         _count: {
-          select: { fields: true, computations: true, ranges: true },
+          select: { fields: true, ranges: true },
         },
       },
     });
@@ -64,12 +61,11 @@ export class GradingSystemsService {
       description: gradingSystem.description,
       threshold: gradingSystem.threshold,
       fieldsCount: gradingSystem._count.fields,
-      computationsCount: gradingSystem._count.computations,
       rangesCount: gradingSystem._count.ranges,
     }));
   }
 
-  async getGradingSystem(gradingSystemId: string): Promise<GradingSystemRes> {
+  async getGradingSystem(gradingSystemId: string) {
     const foundGradingSystem =
       await this.prisma.gradingSystem.findUniqueOrThrow({
         where: { id: gradingSystemId },
@@ -82,7 +78,7 @@ export class GradingSystemsService {
           description: true,
           threshold: true,
           _count: {
-            select: { fields: true, computations: true, ranges: true },
+            select: { fields: true, ranges: true },
           },
         },
       });
@@ -96,7 +92,6 @@ export class GradingSystemsService {
       description: foundGradingSystem.description ?? '',
       threshold: foundGradingSystem.threshold,
       fieldsCount: foundGradingSystem._count.fields,
-      computationsCount: foundGradingSystem._count.computations,
       rangesCount: foundGradingSystem._count.ranges,
     };
   }
@@ -122,9 +117,6 @@ export class GradingSystemsService {
     gradingSystemId: string,
     { fields }: UpsertGradingFieldsBody,
   ) {
-    if (!this.hasUniqueValues(fields, 'variable'))
-      throw new BadRequestException('Variable names must be unique');
-
     if (!this.hasUniqueValues(fields, 'label'))
       throw new BadRequestException('Labels must be unique');
 
@@ -136,115 +128,25 @@ export class GradingSystemsService {
     if (totalWeight !== 100)
       throw new BadRequestException('Total weight must be 100');
 
-    await this.prisma.gradingField.deleteMany({ where: { gradingSystemId } });
-    await this.prisma.gradingField.createMany({
-      data: fields.map((field) => {
-        return {
-          gradingSystemId,
-          label: field.label,
-          maxScore: field.maxScore,
-          weight: field.weight,
-          variable: field.variable,
-          description: field.description ?? '',
-        };
-      }),
-    });
-
-    // Create or update the total computation
-    await this.prisma.gradingComputation.upsert({
-      where: {
-        gradingSystemId_label_variable: {
-          gradingSystemId,
-          label: 'Total',
-          variable: 'total',
-        },
-      },
-      create: {
-        gradingSystemId,
-        label: 'Total',
-        variable: 'total',
-        description: 'Total score',
-        expression: fields.map((field) => field.variable).join(' + '),
-      },
-      update: {
-        expression: fields.map((field) => field.variable).join(' + '),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.gradingField.deleteMany({ where: { gradingSystemId } });
+      await tx.gradingField.createMany({
+        data: fields.map((field) => {
+          return {
+            gradingSystemId,
+            label: field.label,
+            maxScore: field.maxScore,
+            weight: field.weight,
+            variable: changeCase.snakeCase(field.label),
+            description: field.description,
+          };
+        }),
+      });
     });
   }
 
   async getGradingFields(gradingSystemId: string) {
     return await this.prisma.gradingField.findMany({
-      where: { gradingSystemId },
-    });
-  }
-
-  async upsertGradingComputations(
-    gradingSystemId: string,
-    { computations }: UpsertGradingComputationsBody,
-  ) {
-    const totalGradingComputation =
-      await this.prisma.gradingComputation.findUnique({
-        where: {
-          gradingSystemId_label_variable: {
-            gradingSystemId,
-            label: 'Total',
-            variable: 'total',
-          },
-        },
-      });
-    if (!totalGradingComputation)
-      throw new BadRequestException('Grading fields have not been created');
-
-    const computationsWithTotal: GradingComputation[] = [
-      ...computations,
-      {
-        description: totalGradingComputation.description,
-        expression: totalGradingComputation.expression,
-        label: totalGradingComputation.label,
-        variable: totalGradingComputation.variable,
-      },
-    ];
-
-    if (!this.hasUniqueValues(computationsWithTotal, 'variable'))
-      throw new BadRequestException('Variable names must be unique');
-
-    if (!this.hasUniqueValues(computationsWithTotal, 'label'))
-      throw new BadRequestException('Labels must be unique');
-
-    const foundGradingFields = await this.getGradingFields(gradingSystemId);
-    const variables = foundGradingFields.map(
-      (gradingField) => gradingField.variable,
-    );
-    const variablesSuperset = new Set([...variables, 'units']);
-
-    const parser = new Parser();
-    for (const computation of computationsWithTotal) {
-      const parsedExpression = parser.parse(computation.expression);
-      const parsedVariables = parsedExpression.variables();
-      const invalidVariables = parsedVariables.filter(
-        (variable) => !variablesSuperset.has(variable),
-      );
-
-      if (invalidVariables.length > 0) {
-        throw new BadRequestException(
-          `Invalid variables in expression: ${invalidVariables.join(', ')}`,
-        );
-      }
-    }
-
-    await this.prisma.gradingComputation.deleteMany({
-      where: { gradingSystemId },
-    });
-    await this.prisma.gradingComputation.createMany({
-      data: computations.map((computation) => ({
-        gradingSystemId,
-        ...computation,
-      })),
-    });
-  }
-
-  async getGradingComputations(gradingSystemId: string) {
-    return await this.prisma.gradingComputation.findMany({
       where: { gradingSystemId },
     });
   }
@@ -282,12 +184,14 @@ export class GradingSystemsService {
         throw new BadRequestException('Ranges must be non-overlapping');
     }
 
-    await this.prisma.gradingRange.deleteMany({ where: { gradingSystemId } });
-    await this.prisma.gradingRange.createMany({
-      data: ranges.map((range) => ({
-        gradingSystemId,
-        ...range,
-      })),
+    await this.prisma.$transaction(async (tx) => {
+      await tx.gradingRange.deleteMany({ where: { gradingSystemId } });
+      await tx.gradingRange.createMany({
+        data: ranges.map((range) => ({
+          gradingSystemId,
+          ...range,
+        })),
+      });
     });
   }
 
@@ -301,7 +205,6 @@ export class GradingSystemsService {
     enrollmentId: string,
     scores: Record<string, number>,
     gradingSystem: {
-      computations: GradingComputation[];
       fields: GradingField[];
       ranges: GradingRange[];
     },
@@ -313,28 +216,21 @@ export class GradingSystemsService {
       ]),
     );
 
-    const computationResults = Object.fromEntries(
-      gradingSystem.computations.map((computation) => {
-        const { expression } = computation;
-        return [
-          computation.variable,
-          Parser.evaluate(expression, scoresToGrade),
-        ];
-      }),
+    const total = Object.values(scoresToGrade).reduce(
+      (acc, score) => acc + score,
+      0,
     );
 
     // Extract grade label for score
     const matchedRange = gradingSystem.ranges.find(
-      ({ minScore, maxScore }) =>
-        computationResults.total >= minScore &&
-        computationResults.total <= maxScore,
+      ({ minScore, maxScore }) => total >= minScore && total <= maxScore,
     );
 
     await this.prisma.result.update({
       where: { uniqueResult: { enrollmentId, type: ResultType.INITIAL } },
       data: {
         scores,
-        evaluations: { ...computationResults, Grade: matchedRange },
+        evaluations: { total, Grade: matchedRange },
       },
     });
   }

@@ -11,12 +11,10 @@ import {
 import { GradingSystemsService } from './grading-systems.service';
 import {
   CreateGradingSystemBody,
-  GradingComputation,
   GradingField,
   GradingRange,
   GradingSystemRes,
   UpdateGradingSystemBody,
-  UpsertGradingComputationsBody,
   UpsertGradingFieldsBody,
   UpsertGradingRangesBody,
 } from './grading-systems.schema';
@@ -134,40 +132,6 @@ export class GradingSystemsController {
     @Param('gradingSystemId') gradingSystemId: string,
   ) {
     return this.gradingSystemsService.getGradingFields(gradingSystemId);
-  }
-
-  @ApiOperation({ summary: 'Create or update grading computations' })
-  @ApiParam({
-    name: 'gradingSystemId',
-    description: 'ID of the grading system',
-  })
-  @ApiBody({ type: UpsertGradingComputationsBody })
-  @ApiOkResponse({ description: 'Grading computations upserted successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid request body' })
-  @ApiNotFoundResponse({ description: 'Grading system not found' })
-  @Put(':gradingSystemId/computations')
-  async upsertGradingComputations(
-    @Param('gradingSystemId') gradingSystemId: string,
-    @Body() body: UpsertGradingComputationsBody,
-  ) {
-    return this.gradingSystemsService.upsertGradingComputations(
-      gradingSystemId,
-      body,
-    );
-  }
-
-  @ApiOperation({ summary: 'Get grading computations for a grading system' })
-  @ApiParam({
-    name: 'gradingSystemId',
-    description: 'ID of the grading system',
-  })
-  @ApiOkResponse({ type: [GradingComputation] })
-  @ApiNotFoundResponse({ description: 'Grading system not found' })
-  @Get(':gradingSystemId/computations')
-  async getGradingSystemComputations(
-    @Param('gradingSystemId') gradingSystemId: string,
-  ) {
-    return this.gradingSystemsService.getGradingComputations(gradingSystemId);
   }
 
   @ApiOperation({ summary: 'Create or update grading ranges' })
