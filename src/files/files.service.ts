@@ -49,6 +49,7 @@ export class FilesService {
   ) {}
 
   async getFiles(userId: string): Promise<FileRes[]> {
+    this.logger.log(`Fetching files for user: ${userId}`);
     const files = await this.prisma.file.findMany({
       where: { userId },
       select: {
@@ -64,6 +65,7 @@ export class FilesService {
       orderBy: { createdAt: 'desc' },
     });
 
+    this.logger.log(`Found ${files.length} files for user: ${userId}`);
     return files.map((file) => ({
       ...file,
       metadata: file.metadata as object,
@@ -75,6 +77,9 @@ export class FilesService {
     fileId: string,
     body: ProvideAltHeaderMappingsBody,
   ) {
+    this.logger.log(
+      `Updating alt header mappings for file: ${fileId}, user: ${userId}`,
+    );
     const file = await this.prisma.file.findUniqueOrThrow({
       where: { id: fileId, userId },
     });
@@ -88,19 +93,29 @@ export class FilesService {
         }),
       },
     });
+    this.logger.log(
+      `Alt header mappings updated successfully for file: ${fileId}`,
+    );
   }
 
   async parseFile(payload: ParseFilePayload) {
     const { fileId } = payload;
+    this.logger.log(`Starting file parsing for fileId: ${fileId}`);
 
     const file = await this.prisma.file.findUnique({
       where: { id: fileId },
     });
-    if (!file) return;
+    if (!file) {
+      this.logger.warn(`File not found for fileId: ${fileId}`);
+      return;
+    }
 
     const metadata = (file.metadata as FileMetadata) ?? {};
 
     try {
+      this.logger.log(
+        `Normalizing file content for fileId: ${fileId}, category: ${file.category}`,
+      );
       const csvContents = this.normalizeToCsv(
         Buffer.from(file.buffer),
         file.mimetype,
@@ -111,28 +126,34 @@ export class FilesService {
       for (const csvContent of csvContents) {
         switch (file.category) {
           case FileCategory.COURSES:
+            this.logger.log(`Handling category: ${FileCategory.COURSES}`);
             responses.push(await this.handleCourses(csvContent, metadata));
             break;
 
           case FileCategory.LECTURERS:
+            this.logger.log(`Handling category: ${FileCategory.LECTURERS}`);
             responses.push(await this.handleLecturers(csvContent, metadata));
             break;
 
           case FileCategory.STUDENTS:
+            this.logger.log(`Handling category: ${FileCategory.STUDENTS}`);
             responses.push(await this.handleStudents(csvContent));
             break;
 
           case FileCategory.RESULTS:
+            this.logger.log(`Handling category: ${FileCategory.RESULTS}`);
             responses.push(await this.handleResults(csvContent, metadata));
             break;
 
           case FileCategory.REGISTRATIONS:
+            this.logger.log(`Handling category: ${FileCategory.REGISTRATIONS}`);
             responses.push(
               await this.handleRegistrations(csvContent, metadata),
             );
             break;
 
           default:
+            this.logger.error(`Invalid file category`);
             throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
         }
       }
@@ -147,7 +168,9 @@ export class FilesService {
           }),
         },
       });
+      this.logger.log(`File processing completed for fileId: ${fileId}`);
     } catch (error) {
+      this.logger.error(`Failed to parse file ${fileId}: ${error.message}`);
       await this.prisma.file.update({
         where: { id: file.id },
         data: {
@@ -164,6 +187,7 @@ export class FilesService {
     csv: string,
     metadata: FileMetadata,
   ): Promise<CreateCoursesRes> {
+    this.logger.log('Processing courses handle');
     const headerMappings = await this.getHeaderMappings(FileCategory.COURSES);
 
     const parsed = this.parseCsv(
@@ -187,8 +211,12 @@ export class FilesService {
             units: row.units,
           },
         });
+        this.logger.log(`Course created: ${row.code}`);
         res.courses.push({ ...row, isCreated: true });
-      } catch {
+      } catch (error) {
+        this.logger.error(
+          `Failed to create course ${row.code}: ${error.message}`,
+        );
         res.courses.push({ ...row, isCreated: false });
       }
     }
@@ -200,6 +228,7 @@ export class FilesService {
     csv: string,
     metadata: FileMetadata,
   ): Promise<CreateLecturersRes> {
+    this.logger.log('Processing lecturers handle');
     const headerMappings = await this.getHeaderMappings(FileCategory.LECTURERS);
 
     const parsed = this.parseCsv(
@@ -240,6 +269,7 @@ export class FilesService {
           },
         });
 
+        this.logger.log(`Lecturer created: ${row.email}`);
         res.lecturers.push({ ...row, isCreated: true });
       } catch (error) {
         this.logger.error(
@@ -253,6 +283,7 @@ export class FilesService {
   }
 
   private async handleStudents(csv: string): Promise<CreateStudentsRes> {
+    this.logger.log('Processing students handle');
     const headerMappings = await this.getHeaderMappings(FileCategory.STUDENTS);
 
     const parsed = this.parseCsv(csv, CreateStudentBody, headerMappings);
@@ -290,8 +321,12 @@ export class FilesService {
           },
         });
 
+        this.logger.log(`Student created: ${row.email} (${row.matricNumber})`);
         res.students.push({ ...row, isCreated: true });
-      } catch {
+      } catch (error) {
+        this.logger.error(
+          `Failed to create student ${row.email}: ${error.message}`,
+        );
         res.students.push({ ...row, isCreated: false });
       }
     }
@@ -303,8 +338,15 @@ export class FilesService {
     csv: string,
     metadata: FileMetadata,
   ): Promise<UploadResultsRes> {
-    if (!metadata.courseSessionId)
+    this.logger.log(
+      `Processing results handle for courseSession: ${metadata.courseSessionId}`,
+    );
+    if (!metadata.courseSessionId) {
+      this.logger.error(
+        'Missing courseSessionId in metadata for results handle',
+      );
       throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
+    }
 
     const headerMappings = await this.getHeaderMappings(
       FileCategory.RESULTS,
@@ -350,8 +392,12 @@ export class FilesService {
           gradingSystem,
         );
 
+        this.logger.log(`Results uploaded for student: ${row.matricNumber}`);
         res.studentsUploadedFor.push(row.matricNumber);
-      } catch {
+      } catch (error) {
+        this.logger.error(
+          `Failed to upload results for student ${row.matricNumber}: ${error.message}`,
+        );
         res.studentsNotFound.push(row.matricNumber);
       }
     }
@@ -363,8 +409,15 @@ export class FilesService {
     csv: string,
     metadata: FileMetadata,
   ): Promise<RegisterStudentsRes> {
-    if (!metadata.courseSessionId)
+    this.logger.log(
+      `Processing registrations handle for courseSession: ${metadata.courseSessionId}`,
+    );
+    if (!metadata.courseSessionId) {
+      this.logger.error(
+        'Missing courseSessionId in metadata for registrations handle',
+      );
       throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
+    }
 
     const headerMappings = await this.getHeaderMappings(
       FileCategory.REGISTRATIONS,
@@ -400,8 +453,12 @@ export class FilesService {
           },
         });
 
+        this.logger.log(`Student registered: ${row.matricNumber}`);
         res.registeredStudents.push(row.matricNumber);
-      } catch {
+      } catch (error) {
+        this.logger.error(
+          `Failed to register student ${row.matricNumber}: ${error.message}`,
+        );
         res.unregisteredStudents.push(row.matricNumber);
       }
     }
@@ -410,17 +467,22 @@ export class FilesService {
   }
 
   private normalizeToCsv(buffer: Buffer, mimetype: string): string[] {
+    this.logger.log(`Normalizing content with mimetype: ${mimetype}`);
     if (mimetype.includes('csv') || mimetype === 'text/plain') {
       return [buffer.toString('utf-8')];
     }
 
     if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
       const workbook = xlsx.read(buffer, { type: 'buffer' });
+      this.logger.log(
+        `Excel workbook read with ${workbook.SheetNames.length} sheets`,
+      );
       return workbook.SheetNames.map((name) =>
         xlsx.utils.sheet_to_csv(workbook.Sheets[name]),
       );
     }
 
+    this.logger.error(`Unsupported mimetype: ${mimetype}`);
     throw new UnprocessableEntityException(FileErrorMessage.INVALID_FILE_TYPE);
   }
 
@@ -431,6 +493,7 @@ export class FilesService {
     altHeaderMappings?: Record<string, string>,
   ): ParseCsvData<T> {
     const effectiveHeaders = altHeaderMappings ?? headerMappings;
+    this.logger.log('Starting PapaParse operation');
 
     const parsed = Papa.parse(csv, {
       header: true,
@@ -446,6 +509,9 @@ export class FilesService {
       const errors = validateSync(instance);
 
       if (errors.length) {
+        this.logger.warn(
+          `Row ${index + 1} failed validation: ${errors.length} errors`,
+        );
         invalidRows.push({
           row: index + 1,
           errorMessages: errors.map((e) => e.toString()),
@@ -455,6 +521,9 @@ export class FilesService {
       }
     });
 
+    this.logger.log(
+      `Parsing finished. Valid: ${validRows.length}, Invalid: ${invalidRows.length}`,
+    );
     return {
       numberOfRows: parsed.data.length,
       validRows,
@@ -466,6 +535,7 @@ export class FilesService {
     category: FileCategory,
     courseSessionId?: string,
   ): Promise<Record<string, string>> {
+    this.logger.log(`Fetching header mappings for category: ${category}`);
     switch (category) {
       case FileCategory.COURSES:
         return {
@@ -509,6 +579,9 @@ export class FilesService {
         };
 
       case FileCategory.RESULTS: {
+        this.logger.log(
+          `Fetching dynamic grading fields for session: ${courseSessionId}`,
+        );
         const courseSession = await this.prisma.courseSession.findUniqueOrThrow(
           {
             where: { id: courseSessionId },
@@ -522,6 +595,9 @@ export class FilesService {
       }
 
       default:
+        this.logger.error(
+          `Could not provide header mappings for category: ${category}`,
+        );
         throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
     }
   }
