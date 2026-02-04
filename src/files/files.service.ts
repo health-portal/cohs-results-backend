@@ -492,7 +492,7 @@ export class FilesService {
           'Last Name': 'lastName',
           'Other Name': 'otherName',
           Email: 'email',
-          'Matriculation Number': 'matricNumber',
+          'Matric Number': 'matricNumber',
           Department: 'department',
           Degree: 'degree',
           Level: 'level',
@@ -502,7 +502,7 @@ export class FilesService {
 
       case FileCategory.REGISTRATIONS:
         return {
-          'Matriculation Number': 'matricNumber',
+          'Matric Number': 'matricNumber',
         };
 
       case FileCategory.RESULTS: {
