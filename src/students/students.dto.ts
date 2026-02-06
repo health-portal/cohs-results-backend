@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender, Level, StudentStatus } from '@prisma/client';
+import { Gender, Level } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -8,8 +8,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { IsSequentialAcademicYear } from 'src/college/college.schema';
-import { ParseCsvData } from 'src/files/files.schema';
+import { IsSequentialAcademicYear } from 'src/college/college.dto';
 
 export class CreateStudentBody {
   @ApiProperty()
@@ -106,52 +105,4 @@ export class UpdateStudentBody {
   @IsString()
   @IsOptional()
   degree?: string;
-}
-
-export class CreateStudentRes extends CreateStudentBody {
-  @ApiProperty()
-  isCreated: boolean;
-}
-
-export class CreateStudentsRes extends ParseCsvData<CreateStudentBody> {
-  @ApiProperty({ type: [CreateStudentRes] })
-  students: CreateStudentRes[];
-}
-
-export class StudentProfileRes {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  email: string;
-
-  @ApiProperty()
-  matricNumber: string;
-
-  @ApiProperty()
-  firstName: string;
-
-  @ApiProperty()
-  lastName: string;
-
-  @ApiProperty({ nullable: true })
-  otherName: string | null;
-
-  @ApiProperty()
-  department: string;
-
-  @ApiProperty()
-  level: Level;
-
-  @ApiProperty()
-  gender: Gender;
-
-  @ApiProperty()
-  admissionYear: string;
-
-  @ApiProperty()
-  degree: string;
-
-  @ApiProperty({ enum: StudentStatus })
-  status: StudentStatus;
 }

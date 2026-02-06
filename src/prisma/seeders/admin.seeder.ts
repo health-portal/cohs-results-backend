@@ -1,11 +1,10 @@
 import { type PrismaClient, UserRole } from '@prisma/client';
 import { createClient } from 'smtpexpress';
-import { TokenPayload } from 'src/auth/auth.schema';
-
+import { TokenPayload } from 'src/auth/auth.dto';
 import {
   EmailSubject,
   setPasswordTemplate,
-} from 'src/message-queue/message-queue.schema';
+} from 'src/message-queue/message-queue.dto';
 import * as jwt from 'jsonwebtoken';
 import env from 'src/environment';
 
@@ -19,11 +18,11 @@ export default async function seedAdmins(prisma: PrismaClient) {
   for (const admin of env.DEFAULT_ADMINS) {
     console.log(`Checking Admin: ${admin.email}`);
 
-    const foundUser = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: admin.email },
     });
 
-    if (foundUser) {
+    if (user) {
       console.log(`→ Admin already exists: ${admin.email}\n`);
       continue;
     }

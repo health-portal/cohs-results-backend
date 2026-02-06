@@ -12,11 +12,10 @@ import {
 import {
   RequestPasswordResetBody,
   SetPasswordBody,
-  SetPasswordRes,
   SigninUserBody,
-  SigninUserRes,
-} from './auth.schema';
+} from './auth.dto';
 import { AuthService } from './auth.service';
+import { SigninUserRes, UserRes } from './auth.responses';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -27,7 +26,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Activate a user account' })
   @ApiBody({ type: SetPasswordBody })
-  @ApiOkResponse({ type: SetPasswordRes })
+  @ApiOkResponse({ type: UserRes })
   @ApiConflictResponse({ description: 'User already activated' })
   @ApiBadRequestResponse({ description: 'Non-existent or invalid token' })
   async activateUser(@Body() body: SetPasswordBody) {
@@ -59,7 +58,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password' })
   @ApiBody({ type: SetPasswordBody })
-  @ApiOkResponse({ type: SetPasswordRes })
+  @ApiOkResponse({ type: UserRes })
   @ApiUnauthorizedResponse({ description: 'User not found' })
   @ApiBadRequestResponse({ description: 'Non-existent or invalid token' })
   async confirmPasswordReset(@Body() body: SetPasswordBody) {

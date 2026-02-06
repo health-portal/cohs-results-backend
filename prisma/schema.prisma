@@ -221,9 +221,9 @@ model Department {
 }
 
 model Session {
-    id        String   @id @default(uuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    id        String    @id @default(uuid())
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
     deletedAt DateTime?
 
     academicYear String   @unique
@@ -304,7 +304,6 @@ model GradingSystem {
 
     courseSessions CourseSession[]
     fields         GradingField[]
-    computations   GradingComputation[]
     ranges         GradingRange[]
 
     @@index([deletedAt])
@@ -320,7 +319,7 @@ model GradingField {
     label       String
     description String
     variable    String
-    maxScore    Float
+    maxValue    Float
     weight      Float
 
     gradingSystemId String
@@ -329,24 +328,6 @@ model GradingField {
     @@unique([gradingSystemId, label, variable])
     @@index([label])
     @@map("grading_fields")
-}
-
-model GradingComputation {
-    id        String   @id @default(uuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    label       String
-    description String
-    variable    String
-    expression  String
-
-    gradingSystemId String
-    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id])
-
-    @@unique([gradingSystemId, label, variable])
-    @@index([label])
-    @@map("grading_computations")
 }
 
 model GradingRange {
@@ -410,7 +391,8 @@ model Enrollment {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    status EnrollmentStatus @default(ENROLLED)
+    status            EnrollmentStatus @default(ENROLLED)
+    levelAtEnrollment Level
 
     studentId       String
     student         Student       @relation(fields: [studentId], references: [id])
@@ -425,8 +407,6 @@ model Enrollment {
     @@index([status])
     @@map("enrollments")
 }
-
-// TODO: A student's levelAtEnrollment should be added to enrollment
 
 model Result {
     id        String   @id @default(uuid())

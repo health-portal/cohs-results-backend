@@ -11,15 +11,10 @@ import {
 import { GradingSystemsService } from './grading-systems.service';
 import {
   CreateGradingSystemBody,
-  GradingComputation,
-  GradingField,
-  GradingRange,
-  GradingSystemRes,
   UpdateGradingSystemBody,
-  UpsertGradingComputationsBody,
-  UpsertGradingFieldsBody,
-  UpsertGradingRangesBody,
-} from './grading-systems.schema';
+  UpsertGradingFieldBody,
+  UpsertGradingRangeBody,
+} from './grading-systems.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -34,6 +29,11 @@ import {
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
+import {
+  GradingFieldRes,
+  GradingRangeRes,
+  GradingSystemRes,
+} from './grading-systems.responses';
 
 @ApiTags('grading-systems', 'Admin')
 @ApiBearerAuth('accessToken')
@@ -107,14 +107,14 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiBody({ type: UpsertGradingFieldsBody })
+  @ApiBody({ type: [UpsertGradingFieldBody] })
   @ApiOkResponse({ description: 'Grading fields upserted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Put(':gradingSystemId/fields')
   async upsertGradingFields(
     @Param('gradingSystemId') gradingSystemId: string,
-    @Body() body: UpsertGradingFieldsBody,
+    @Body() body: UpsertGradingFieldBody[],
   ) {
     return this.gradingSystemsService.upsertGradingFields(
       gradingSystemId,
@@ -127,7 +127,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ type: [GradingField] })
+  @ApiOkResponse({ type: [GradingFieldRes] })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId/fields')
   async getGradingSystemFields(
@@ -136,53 +136,19 @@ export class GradingSystemsController {
     return this.gradingSystemsService.getGradingFields(gradingSystemId);
   }
 
-  @ApiOperation({ summary: 'Create or update grading computations' })
-  @ApiParam({
-    name: 'gradingSystemId',
-    description: 'ID of the grading system',
-  })
-  @ApiBody({ type: UpsertGradingComputationsBody })
-  @ApiOkResponse({ description: 'Grading computations upserted successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid request body' })
-  @ApiNotFoundResponse({ description: 'Grading system not found' })
-  @Put(':gradingSystemId/computations')
-  async upsertGradingComputations(
-    @Param('gradingSystemId') gradingSystemId: string,
-    @Body() body: UpsertGradingComputationsBody,
-  ) {
-    return this.gradingSystemsService.upsertGradingComputations(
-      gradingSystemId,
-      body,
-    );
-  }
-
-  @ApiOperation({ summary: 'Get grading computations for a grading system' })
-  @ApiParam({
-    name: 'gradingSystemId',
-    description: 'ID of the grading system',
-  })
-  @ApiOkResponse({ type: [GradingComputation] })
-  @ApiNotFoundResponse({ description: 'Grading system not found' })
-  @Get(':gradingSystemId/computations')
-  async getGradingSystemComputations(
-    @Param('gradingSystemId') gradingSystemId: string,
-  ) {
-    return this.gradingSystemsService.getGradingComputations(gradingSystemId);
-  }
-
   @ApiOperation({ summary: 'Create or update grading ranges' })
   @ApiParam({
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiBody({ type: UpsertGradingRangesBody })
+  @ApiBody({ type: [UpsertGradingRangeBody] })
   @ApiOkResponse({ description: 'Grading ranges upserted successfully' })
   @ApiBadRequestResponse({ description: 'Invalid request body' })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Put(':gradingSystemId/ranges')
   async upsertGradingRanges(
     @Param('gradingSystemId') gradingSystemId: string,
-    @Body() body: UpsertGradingRangesBody,
+    @Body() body: UpsertGradingRangeBody[],
   ) {
     return this.gradingSystemsService.upsertGradingRanges(
       gradingSystemId,
@@ -195,7 +161,7 @@ export class GradingSystemsController {
     name: 'gradingSystemId',
     description: 'ID of the grading system',
   })
-  @ApiOkResponse({ type: [GradingRange] })
+  @ApiOkResponse({ type: [GradingRangeRes] })
   @ApiNotFoundResponse({ description: 'Grading system not found' })
   @Get(':gradingSystemId/ranges')
   async getGradingRanges(@Param('gradingSystemId') gradingSystemId: string) {

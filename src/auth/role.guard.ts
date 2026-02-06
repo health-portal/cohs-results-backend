@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { UserPayload } from './auth.schema';
+import { UserPayload } from './auth.dto';
 import { UserRole } from '@prisma/client';
 
 export const AuthRoles = Reflector.createDecorator<UserRole[]>();

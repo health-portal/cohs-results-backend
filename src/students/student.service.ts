@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ChangePasswordBody } from 'src/auth/auth.schema';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon2 from 'argon2';
-import { EnrollmentRes } from 'src/lecturers/lecturers.schema';
-import { StudentProfileRes } from './students.schema';
+import { ChangePasswordBody } from 'src/auth/auth.dto';
+import { StudentEnrollmentRes, StudentProfileRes } from './students.responses';
 
 @Injectable()
 export class StudentService {
@@ -13,12 +12,12 @@ export class StudentService {
     userId: string,
     { currentPassword, newPassword }: ChangePasswordBody,
   ) {
-    const foundUser = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
     });
 
     const isPasswordValid = await argon2.verify(
-      foundUser.password!,
+      user.password!,
       currentPassword,
     );
     if (!isPasswordValid) throw new BadRequestException('Invalid password');
@@ -30,38 +29,23 @@ export class StudentService {
     });
   }
 
-  async listEnrollments(studentId: string): Promise<EnrollmentRes[]> {
-    const foundEnrollments = await this.prisma.enrollment.findMany({
+  async listEnrollments(studentId: string): Promise<StudentEnrollmentRes[]> {
+    const enrollments = await this.prisma.enrollment.findMany({
       where: { studentId },
       select: {
         id: true,
         status: true,
-        student: {
-          select: {
-            id: true,
-            matricNumber: true,
-            firstName: true,
-            lastName: true,
-            otherName: true,
-            level: true,
-            department: { select: { name: true } },
-          },
-        },
-        results: { select: { type: true, scores: true } },
+        levelAtEnrollment: true,
+        results: { select: { type: true, scores: true, evaluations: true } },
       },
     });
 
-    return foundEnrollments.map((enrollment) => ({
-      id: enrollment.id,
-      status: enrollment.status,
-      studentId: enrollment.student.id,
-      studentName:
-        `${enrollment.student.lastName} ${enrollment.student.firstName} ${enrollment.student.otherName}`.trim(),
-      studentLevel: enrollment.student.level,
-      studentDepartment: enrollment.student.department.name,
+    return enrollments.map((enrollment) => ({
+      ...enrollment,
       results: enrollment.results.map((result) => ({
         scores: result.scores as object,
         type: result.type,
+        evaluations: result.evaluations as object,
       })),
     }));
   }
@@ -69,44 +53,29 @@ export class StudentService {
   async listEnrollment(
     studentId: string,
     enrollmentId: string,
-  ): Promise<EnrollmentRes> {
-    const foundEnrollment = await this.prisma.enrollment.findUniqueOrThrow({
+  ): Promise<StudentEnrollmentRes> {
+    const enrollment = await this.prisma.enrollment.findUniqueOrThrow({
       where: { id: enrollmentId, studentId },
       select: {
         id: true,
         status: true,
-        student: {
-          select: {
-            id: true,
-            matricNumber: true,
-            firstName: true,
-            lastName: true,
-            otherName: true,
-            level: true,
-            department: { select: { name: true } },
-          },
-        },
-        results: { select: { type: true, scores: true } },
+        levelAtEnrollment: true,
+        results: { select: { type: true, scores: true, evaluations: true } },
       },
     });
 
     return {
-      id: foundEnrollment.id,
-      status: foundEnrollment.status,
-      studentId: foundEnrollment.student.id,
-      studentName:
-        `${foundEnrollment.student.lastName} ${foundEnrollment.student.firstName} ${foundEnrollment.student.otherName}`.trim(),
-      studentLevel: foundEnrollment.student.level,
-      studentDepartment: foundEnrollment.student.department.name,
-      results: foundEnrollment.results.map((result) => ({
+      ...enrollment,
+      results: enrollment.results.map((result) => ({
         scores: result.scores as object,
         type: result.type,
+        evaluations: result.evaluations as object,
       })),
     };
   }
 
   async getProfile(studentId: string): Promise<StudentProfileRes> {
-    const foundStudent = await this.prisma.student.findUniqueOrThrow({
+    const student = await this.prisma.student.findUniqueOrThrow({
       where: { id: studentId, deletedAt: null },
       select: {
         id: true,
@@ -125,18 +94,9 @@ export class StudentService {
     });
 
     return {
-      id: foundStudent.id,
-      firstName: foundStudent.firstName,
-      lastName: foundStudent.lastName,
-      otherName: foundStudent.otherName,
-      matricNumber: foundStudent.matricNumber,
-      admissionYear: foundStudent.admissionYear,
-      degree: foundStudent.degree,
-      gender: foundStudent.gender,
-      level: foundStudent.level,
-      status: foundStudent.status,
-      department: foundStudent.department.name,
-      email: foundStudent.user.email,
+      ...student,
+      department: student.department.name,
+      email: student.user.email,
     };
   }
 }

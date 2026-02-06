@@ -18,9 +18,8 @@ import { LecturersService } from './lecturers.service';
 import {
   CreateLecturerBody,
   type UpdateLecturerBody,
-  LecturerProfileRes,
   GetLecturersQuery,
-} from './lecturers.schema';
+} from './lecturers.dto';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -39,6 +38,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRole } from '@prisma/client';
 import { User } from 'src/auth/user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { LecturerProfileRes } from './lecturers.responses';
 
 @ApiTags('lecturers', 'Admin')
 @ApiBearerAuth('accessToken')

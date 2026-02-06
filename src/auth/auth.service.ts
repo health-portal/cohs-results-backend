@@ -11,14 +11,13 @@ import {
   RequestPasswordResetBody,
   SigninUserBody,
   UserData,
-  SigninUserRes,
-  UserRes,
-} from './auth.schema';
+} from './auth.dto';
 import * as argon2 from 'argon2';
 import { isEmail } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { TokensService } from 'src/tokens/tokens.service';
+import { SigninUserRes, UserRes } from './auth.responses';
 
 @Injectable()
 export class AuthService {
@@ -47,16 +46,16 @@ export class AuthService {
     if (role !== UserRole.STUDENT)
       return await this.findUserByEmail(identifier, role);
     else {
-      const foundUser = isEmail(identifier)
+      const user = isEmail(identifier)
         ? await this.findUserByEmail(identifier, role)
         : await this.findUserByMatric(identifier);
 
-      return foundUser;
+      return user;
     }
   }
 
   private async getUserData(userId: string): Promise<UserData> {
-    const foundUser = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
         id: true,
@@ -89,16 +88,16 @@ export class AuthService {
       },
     });
 
-    switch (foundUser.role) {
+    switch (user.role) {
       case UserRole.ADMIN:
-        return { adminId: foundUser.admin!.id };
+        return { adminId: user.admin!.id };
 
       case UserRole.LECTURER:
         return {
-          lecturerId: foundUser.lecturer!.id,
-          departmentId: foundUser.lecturer!.departmentId,
-          facultyId: foundUser.lecturer!.department.facultyId,
-          designations: foundUser.lecturer!.designations.map((designation) => ({
+          lecturerId: user.lecturer!.id,
+          departmentId: user.lecturer!.departmentId,
+          facultyId: user.lecturer!.department.facultyId,
+          designations: user.lecturer!.designations.map((designation) => ({
             entity: designation.entity,
             role: designation.role,
           })),
@@ -106,11 +105,11 @@ export class AuthService {
 
       case UserRole.STUDENT:
         return {
-          studentId: foundUser.student!.id,
-          level: foundUser.student!.level,
-          facultyId: foundUser.student!.department.facultyId,
-          matricNumber: foundUser.student!.matricNumber,
-          departmentId: foundUser.student!.departmentId,
+          studentId: user.student!.id,
+          level: user.student!.level,
+          facultyId: user.student!.department.facultyId,
+          matricNumber: user.student!.matricNumber,
+          departmentId: user.student!.departmentId,
         };
 
       default:
@@ -123,11 +122,10 @@ export class AuthService {
     password,
   }: SetPasswordBody): Promise<UserRes> {
     const { email, role } = await this.tokensService.verifyToken(tokenString);
-    const foundUser = await this.findUser(email, role);
-    const userId = foundUser.id;
+    const user = await this.findUser(email, role);
+    const userId = user.id;
 
-    if (foundUser.password)
-      throw new ConflictException('User already activated');
+    if (user.password) throw new ConflictException('User already activated');
 
     const hashedPassword = await argon2.hash(password);
     const updatedUser = await this.prisma.user.update({
@@ -144,19 +142,19 @@ export class AuthService {
     password,
     role,
   }: SigninUserBody): Promise<SigninUserRes> {
-    const foundUser = await this.findUser(identifier, role);
-    if (!foundUser.password) throw new ForbiddenException('User not activated');
+    const user = await this.findUser(identifier, role);
+    if (!user.password) throw new ForbiddenException('User not activated');
 
-    const isPasswordValid = await argon2.verify(foundUser.password, password);
+    const isPasswordValid = await argon2.verify(user.password, password);
     if (!isPasswordValid)
       throw new UnauthorizedException('Invalid credentials');
 
-    const userData: UserData = await this.getUserData(foundUser.id);
+    const userData: UserData = await this.getUserData(user.id);
 
     const accessToken = await this.tokensService.generateAccessToken({
-      sub: foundUser.id,
-      email: foundUser.email,
-      userRole: foundUser.role,
+      sub: user.id,
+      email: user.email,
+      userRole: user.role,
       userData,
     });
 
@@ -164,14 +162,14 @@ export class AuthService {
   }
 
   async requestPasswordReset({ identifier, role }: RequestPasswordResetBody) {
-    const foundUser = await this.findUser(identifier, role);
+    const user = await this.findUser(identifier, role);
 
     await this.messageQueueService.enqueueSetPasswordEmail({
       isActivateAccount: false,
       tokenPayload: {
-        email: foundUser.email,
-        role: foundUser.role,
-        sub: foundUser.id,
+        email: user.email,
+        role: user.role,
+        sub: user.id,
       },
     });
   }
@@ -181,11 +179,11 @@ export class AuthService {
     tokenString,
   }: SetPasswordBody): Promise<UserRes> {
     const { email, role } = await this.tokensService.verifyToken(tokenString);
-    const foundUser = await this.findUser(email, role);
+    const user = await this.findUser(email, role);
 
     const hashedPassword = await argon2.hash(password);
     const updatedUser = await this.prisma.user.update({
-      where: { id: foundUser.id },
+      where: { id: user.id },
       data: { password: hashedPassword },
       select: { id: true, email: true, role: true },
     });

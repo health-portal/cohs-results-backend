@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
-import { TokenPayload } from 'src/auth/auth.schema';
+import { TokenPayload } from 'src/auth/auth.dto';
 import { TokensService } from 'src/tokens/tokens.service';
 import {
   EmailSubject,
@@ -11,7 +11,7 @@ import {
   type SendEmailPayload,
   SetPasswordSchema,
   setPasswordTemplate,
-} from './message-queue.schema';
+} from './message-queue.dto';
 
 @Injectable()
 export class MessageQueueService {

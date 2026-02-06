@@ -9,8 +9,6 @@ import {
   Min,
 } from 'class-validator';
 import { Semester } from '@prisma/client';
-import { DepartmentRes } from 'src/college/college.schema';
-import { ParseCsvData } from 'src/files/files.schema';
 
 export class CreateCourseBody {
   @ApiProperty()
@@ -59,37 +57,4 @@ export class UpdateCourseBody {
   @IsString()
   @IsOptional()
   description?: string;
-}
-
-export class CreateCourseRes extends CreateCourseBody {
-  @ApiProperty()
-  isCreated: boolean;
-}
-
-export class CreateCoursesRes extends ParseCsvData<CreateCourseBody> {
-  @ApiProperty({ type: [CreateCourseRes] })
-  courses: CreateCourseRes[];
-}
-
-export class CourseRes {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  code: string;
-
-  @ApiProperty({ nullable: true })
-  description: string | null;
-
-  @ApiProperty()
-  title: string;
-
-  @ApiProperty()
-  units: number;
-
-  @ApiProperty({ enum: Semester })
-  semester: Semester;
-
-  @ApiProperty({ type: DepartmentRes })
-  department: DepartmentRes;
 }

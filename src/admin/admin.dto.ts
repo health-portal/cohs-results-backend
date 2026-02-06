@@ -23,20 +23,3 @@ export class UpdateAdminBody {
   @IsOptional()
   phone?: string;
 }
-
-export class AdminProfileRes {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  name: string;
-
-  @ApiProperty({ type: 'string', nullable: true })
-  phone: string | null;
-
-  @ApiProperty()
-  email: string;
-
-  @ApiProperty({ nullable: true })
-  isActivated?: boolean;
-}

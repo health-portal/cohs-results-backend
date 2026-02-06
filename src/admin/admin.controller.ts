@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { User } from 'src/auth/user.decorator';
-import { AddAdminBody, AdminProfileRes, UpdateAdminBody } from './admin.schema';
+import { AddAdminBody, UpdateAdminBody } from './admin.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -14,7 +14,8 @@ import {
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { AdminData, type UserPayload } from 'src/auth/auth.schema';
+import { AdminData, type UserPayload } from 'src/auth/auth.dto';
+import { AdminProfileRes } from './admin.responses';
 
 @ApiTags('admin', 'Admin')
 @ApiBearerAuth('accessToken')

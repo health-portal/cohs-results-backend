@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  CreateDepartmentBody,
-  CreateFacultyBody,
-  DepartmentRes,
-  FacultyRes,
-} from './college.schema';
+import { CreateDepartmentBody, CreateFacultyBody } from './college.dto';
+import { DepartmentRes, FacultyRes } from './college.responses';
 
 @Injectable()
 export class CollegeService {

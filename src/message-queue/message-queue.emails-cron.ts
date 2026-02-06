@@ -1,7 +1,7 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PgBoss } from 'pg-boss';
 import { createClient } from 'smtpexpress';
-import { QueueTable, SendEmailPayload } from './message-queue.schema';
+import { QueueTable, SendEmailPayload } from './message-queue.dto';
 import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';

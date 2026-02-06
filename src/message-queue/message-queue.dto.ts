@@ -1,5 +1,5 @@
 import env from 'src/environment';
-import { TokenPayload } from 'src/auth/auth.schema';
+import { TokenPayload } from 'src/auth/auth.dto';
 
 export enum QueueTable {
   EMAILS = 'emails',

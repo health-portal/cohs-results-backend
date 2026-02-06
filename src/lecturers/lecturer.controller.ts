@@ -18,13 +18,8 @@ import { User } from 'src/auth/user.decorator';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { LecturerData, type UserPayload } from 'src/auth/auth.schema';
-import {
-  EditResultBody,
-  type RegisterStudentBody,
-  LecturerProfileRes,
-  EnrollmentRes,
-} from './lecturers.schema';
+import { LecturerData, type UserPayload } from 'src/auth/auth.dto';
+import { EditResultBody, type RegisterStudentBody } from './lecturers.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -36,8 +31,13 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CourseSessionRes } from 'src/sessions/sessions.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  EnrollmentRes,
+  EnrollmentWithResultRes,
+  LecturerCourseSessionRes,
+  LecturerProfileRes,
+} from './lecturers.responses';
 
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
@@ -53,7 +53,7 @@ export class LecturerController {
   }
 
   @ApiOperation({ summary: 'List courses' })
-  @ApiOkResponse({ type: [CourseSessionRes] })
+  @ApiOkResponse({ type: [LecturerCourseSessionRes] })
   @Get('courses-sessions')
   async listCourseSessions(@User() user: UserPayload) {
     const lecturerId = this.getLecturerId(user);
@@ -173,21 +173,6 @@ export class LecturerController {
     );
   }
 
-  @ApiOperation({ summary: 'View results for a course session' })
-  @ApiOkResponse({ type: [EnrollmentRes] })
-  @ApiNotFoundResponse({ description: 'Course session not found' })
-  @Get('courses-sessions/:courseSessionId/results')
-  async viewCourseResults(
-    @User() user: UserPayload,
-    @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-  ) {
-    const lecturerId = this.getLecturerId(user);
-    return await this.lecturerService.viewCourseResults(
-      lecturerId,
-      courseSessionId,
-    );
-  }
-
   @ApiOperation({ summary: 'List students in a course session' })
   @ApiOkResponse({ type: [EnrollmentRes] })
   @ApiNotFoundResponse({ description: 'Course session not found' })
@@ -198,6 +183,21 @@ export class LecturerController {
   ) {
     const lecturerId = this.getLecturerId(user);
     return await this.lecturerService.listCourseStudents(
+      lecturerId,
+      courseSessionId,
+    );
+  }
+
+  @ApiOperation({ summary: 'View results for a course session' })
+  @ApiOkResponse({ type: [EnrollmentWithResultRes] })
+  @ApiNotFoundResponse({ description: 'Course session not found' })
+  @Get('courses-sessions/:courseSessionId/results')
+  async listCourseResults(
+    @User() user: UserPayload,
+    @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
+  ) {
+    const lecturerId = this.getLecturerId(user);
+    return await this.lecturerService.listCourseResults(
       lecturerId,
       courseSessionId,
     );
