@@ -595,9 +595,7 @@ export class FilesService {
       }
 
       default:
-        this.logger.error(
-          `Could not provide header mappings for category: ${category}`,
-        );
+        this.logger.error(`Could not provide header mappings for category`);
         throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
     }
   }
