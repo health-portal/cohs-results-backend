@@ -19,7 +19,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { LecturerData, type UserPayload } from 'src/auth/auth.dto';
-import { EditResultBody, type RegisterStudentBody } from './lecturers.dto';
+import { EditResultBody, RegisterStudentBody } from './lecturers.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -61,6 +61,7 @@ export class LecturerController {
   }
 
   @ApiOperation({ summary: 'Register a student in a course session' })
+  @ApiBody({ type: RegisterStudentBody })
   @ApiOkResponse({ description: 'Student registered successfully' })
   @ApiForbiddenResponse({
     description:

@@ -121,8 +121,4 @@ export class RegisterStudentBody {
   @IsString()
   @IsNotEmpty()
   matricNumber: string;
-
-  @ApiProperty({ type: Object })
-  @IsObject()
-  scores: Record<string, number>;
 }
