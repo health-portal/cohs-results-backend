@@ -17,7 +17,7 @@ import {
 import { LecturersService } from './lecturers.service';
 import {
   CreateLecturerBody,
-  type UpdateLecturerBody,
+  UpdateLecturerBody,
   GetLecturersQuery,
 } from './lecturers.dto';
 import {
@@ -103,6 +103,7 @@ export class LecturersController {
   }
 
   @ApiOperation({ summary: 'Update a lecturer' })
+  @ApiBody({ type: UpdateLecturerBody })
   @ApiOkResponse({ description: 'Lecturer updated successfully' })
   @ApiConflictResponse({ description: 'Lecturer data already exists' })
   @ApiNotFoundResponse({ description: 'Lecturer not found' })
