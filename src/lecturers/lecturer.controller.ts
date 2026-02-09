@@ -86,6 +86,7 @@ export class LecturerController {
 
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a file for student registrations' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -128,6 +129,7 @@ export class LecturerController {
 
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a file for student results' })
   @ApiBody({
     schema: {
       type: 'object',
