@@ -54,41 +54,35 @@ export class CreateLecturerBody {
 }
 
 export class UpdateLecturerBody {
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsEmail()
-  email: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  firstName: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  email?: string;
 
   @ApiProperty({ required: false })
-  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  lastName?: string;
+
+  @ApiProperty({ required: false })
   @IsString()
   otherName?: string;
 
   @ApiProperty({ enum: Gender })
   @IsEnum(Gender)
-  gender: Gender;
+  gender?: Gender;
 
   @ApiProperty({ required: false })
-  @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsString()
-  @IsNotEmpty()
-  department: string;
+  department?: string;
 
   @ApiProperty({ required: false })
-  @IsOptional()
   @IsString()
   title?: string;
 }
