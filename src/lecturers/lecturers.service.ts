@@ -121,6 +121,7 @@ export class LecturersService {
       otherName,
       department,
       phone,
+      gender,
       title,
     }: UpdateLecturerBody,
   ) {
@@ -134,6 +135,7 @@ export class LecturersService {
             otherName,
             department: { connect: { name: department } },
             phone,
+            gender,
             title,
           },
         },
