@@ -33,12 +33,17 @@ export class Course extends PickType(CourseResponse, [
   department: string;
 }
 
+export class Session extends PickType(SessionResponse, [
+  'id',
+  'academicYear',
+]) {}
+
 export class CourseSessionRes extends PickType(CourseSessionResponse, ['id']) {
   @ApiProperty({ readOnly: true, type: Course })
   course: Course;
 
-  @ApiProperty({ readOnly: true })
-  session: string;
+  @ApiProperty({ type: Session, readOnly: true })
+  session: Session;
 
   @ApiProperty({ readOnly: true })
   gradingSystem: string;

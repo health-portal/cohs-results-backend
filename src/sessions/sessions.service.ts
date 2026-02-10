@@ -118,7 +118,7 @@ export class SessionsService {
       where: { sessionId },
       select: {
         id: true,
-        session: { select: { academicYear: true } },
+        session: { select: { id: true, academicYear: true } },
         gradingSystem: { select: { name: true } },
         deptsAndLevels: {
           select: {
@@ -150,7 +150,10 @@ export class SessionsService {
 
     return courseSessions.map((courseSession) => ({
       id: courseSession.id,
-      session: courseSession.session.academicYear,
+      session: {
+        id: courseSession.session.id,
+        academicYear: courseSession.session.academicYear,
+      },
       gradingSystem: courseSession.gradingSystem.name,
       deptsAndLevels: courseSession.deptsAndLevels.map((deptAndLevel) => ({
         id: deptAndLevel.id,
