@@ -68,7 +68,7 @@ export class AssignDeptAndLevelBody {
   @IsUUID('4')
   departmentId: string;
 
-  @ApiProperty()
+  @ApiProperty({ enum: Level })
   @IsEnum(Level)
   level: Level;
 }

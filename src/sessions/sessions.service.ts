@@ -132,7 +132,13 @@ export class SessionsService {
           },
         },
         course: {
-          select: { code: true },
+          select: {
+            id: true,
+            code: true,
+            department: { select: { name: true } },
+            units: true,
+            semester: true,
+          },
         },
         _count: {
           select: {
@@ -151,7 +157,10 @@ export class SessionsService {
         level: deptAndLevel.level,
         department: deptAndLevel.department.name,
       })),
-      courseCode: courseSession.course.code,
+      course: {
+        ...courseSession.course,
+        department: courseSession.course.department.name,
+      },
       lecturerCount: courseSession._count.lecturers,
     }));
   }

@@ -1,6 +1,7 @@
 import { ApiProperty, PickType } from '@nestjs/swagger';
 import {
   CourseLecturerResponse,
+  CourseResponse,
   CourseSesnDeptAndLevelResponse,
   CourseSessionResponse,
   LecturerResponse,
@@ -22,9 +23,19 @@ export class SessionRes extends PickType(SessionResponse, [
   'endDate',
 ]) {}
 
-export class CourseSessionRes extends PickType(CourseSessionResponse, ['id']) {
+export class Course extends PickType(CourseResponse, [
+  'id',
+  'code',
+  'units',
+  'semester',
+]) {
   @ApiProperty({ readOnly: true })
-  courseCode: string;
+  department: string;
+}
+
+export class CourseSessionRes extends PickType(CourseSessionResponse, ['id']) {
+  @ApiProperty({ readOnly: true, type: Course })
+  course: Course;
 
   @ApiProperty({ readOnly: true })
   session: string;
@@ -32,7 +43,7 @@ export class CourseSessionRes extends PickType(CourseSessionResponse, ['id']) {
   @ApiProperty({ readOnly: true })
   gradingSystem: string;
 
-  @ApiProperty({ type: DeptAndLevelRes })
+  @ApiProperty({ readOnly: true, type: DeptAndLevelRes })
   deptsAndLevels: DeptAndLevelRes[];
 
   @ApiProperty()
