@@ -69,6 +69,12 @@ enum ResultType {
     RESIT
 }
 
+enum ApprovalStatus {
+    REQUESTED 
+    ACCEPTED
+    REJECTED
+}
+
 model User {
     id        String    @id @default(uuid())
     createdAt DateTime  @default(now())
@@ -142,6 +148,8 @@ model LecturerDesignation {
 
     lecturerId String
     lecturer   Lecturer @relation(fields: [lecturerId], references: [id])
+
+    requestedApprovals ApprovalRequest[] @relation("approval_lecturer_designation")
 
     @@unique([entity, role, lecturerId], name: "designation")
     @@index([role])
@@ -283,6 +291,8 @@ model CourseSession {
     lecturers      CourseLecturer[]
     enrollments    Enrollment[]
     deptsAndLevels CourseSesnDeptAndLevel[]
+
+    approvalRequests ApprovalFlow[] @relation("approval_flow")
 
     @@unique([courseId, sessionId], name: "uniqueCourseSession")
     @@index([courseId])
@@ -458,4 +468,33 @@ model AuditLog {
     @@index([action])
     @@index([createdAt])
     @@map("audit_logs")
+}
+
+// Approval pipeline for results
+model ApprovalFlow {
+    id String @id @default(uuid())
+    courseSession CourseSession @relation("approval_flow", fields: [courseSessionId], references: [id])
+    courseSessionId String
+
+    approvalRequests ApprovalRequest[] @relation("requested_approval")
+
+    approvalStatus ApprovalStatus @default(REQUESTED)
+    courseRequestVersion Int @default(1) // Just to track how many times approval's broken
+
+    @@unique([courseSessionId, courseRequestVersion], name: "uniqueApprovalFlow")
+}
+
+model ApprovalRequest {
+    id String @id @default(uuid())
+    status ApprovalStatus @default(REQUESTED)
+    // priority in inc order of stages
+    // so level 1(min) is attended to first and the progresses
+    priority Int @default(1)
+    
+    approvalFlow ApprovalFlow @relation("requested_approval", fields: [approvalFlowId], references: [id])
+    approvalFlowId String
+    lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
+    lecturerDesignationId String
+
+    feedback String? // to limit feedback structure for now
 }
