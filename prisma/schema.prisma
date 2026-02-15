@@ -479,7 +479,9 @@ model ApprovalFlow {
     approvalRequests ApprovalRequest[] @relation("requested_approval")
 
     approvalStatus ApprovalStatus @default(REQUESTED)
-    courseRequestVersion Int // Just to track how many times approval's broken
+    courseRequestVersion Int @default(1) // Just to track how many times approval's broken
+
+    @@unique([courseSessionId, courseRequestVersion], name: "uniqueApprovalFlow")
 }
 
 model ApprovalRequest {
