@@ -37,6 +37,7 @@ enum LecturerRole {
     DEAN
     HOD
     PART_ADVISER
+    COURSE_LECTURER
 }
 
 enum FileCategory {
@@ -69,10 +70,26 @@ enum ResultType {
     RESIT
 }
 
+enum CourseType {
+  INTRA // offering dept == taking dept
+  INTER // different depts
+}
+
+enum PipelineScope {
+  OFFERING_DEPT
+  TAKING_DEPT
+}
+
+enum TemplateScopeType {
+  DEPARTMENT
+  FACULTY
+}
+
 enum ApprovalStatus {
-    REQUESTED 
-    ACCEPTED
-    REJECTED
+  PENDING
+  REQUESTED
+  APPROVED
+  REJECTED
 }
 
 model User {
@@ -132,6 +149,10 @@ model Lecturer {
     department      Department            @relation(fields: [departmentId], references: [id])
     designations    LecturerDesignation[]
     coursesLectured CourseLecturer[]
+    
+    createdTemplates      PipelineTemplate[]         @relation("TemplateCreator")
+    activatedTemplates    PipelineTemplate[]         @relation("TemplateActivator")
+    templateActivations   PipelineTemplateActivation[]
 
     @@index([departmentId])
     @@index([lastName])
@@ -146,14 +167,17 @@ model LecturerDesignation {
     entity String
     role   LecturerRole
 
+    part   Level?  
+
     lecturerId String
     lecturer   Lecturer @relation(fields: [lecturerId], references: [id])
 
     requestedApprovals ApprovalRequest[] @relation("approval_lecturer_designation")
 
-    @@unique([entity, role, lecturerId], name: "designation")
+    @@unique([entity, role, lecturerId, part], name: "designation")
     @@index([role])
     @@index([lecturerId])
+    @@index([role, lecturerId])
     @@map("lecturer_designations")
 }
 
@@ -199,6 +223,8 @@ model Faculty {
     name String @unique
 
     departments Department[]
+    pipelineTemplates           PipelineTemplate[]
+    pipelineTemplateActivations PipelineTemplateActivation[]
 
     @@index([deletedAt])
     @@map("faculties")
@@ -221,6 +247,9 @@ model Department {
     students             Student[]
     courseDeptsAndLevels CourseSesnDeptAndLevel[]
     courses              Course[]
+    
+    offeringApprovalFlows      ApprovalFlow[]             @relation("OfferingDept")
+    takingApprovalFlows        ApprovalFlow[]             @relation("TakingDept")
 
     @@index([facultyId])
     @@index([deletedAt])
@@ -471,30 +500,152 @@ model AuditLog {
 }
 
 // Approval pipeline for results
-model ApprovalFlow {
-    id String @id @default(uuid())
-    courseSession CourseSession @relation("approval_flow", fields: [courseSessionId], references: [id])
-    courseSessionId String
+// model ApprovalFlow {
+//     id String @id @default(uuid())
+//     courseSession CourseSession @relation("approval_flow", fields: [courseSessionId], references: [id])
+//     courseSessionId String
 
-    approvalRequests ApprovalRequest[] @relation("requested_approval")
+//     approvalRequests ApprovalRequest[] @relation("requested_approval")
 
-    approvalStatus ApprovalStatus @default(REQUESTED)
-    courseRequestVersion Int @default(1) // Just to track how many times approval's broken
+//     approvalStatus ApprovalStatus @default(REQUESTED)
+//     courseRequestVersion Int @default(1) // Just to track how many times approval's broken
 
-    @@unique([courseSessionId, courseRequestVersion], name: "uniqueApprovalFlow")
+//     @@unique([courseSessionId, courseRequestVersion], name: "uniqueApprovalFlow")
+// }
+
+// model ApprovalRequest {
+//     id String @id @default(uuid())
+//     status ApprovalStatus @default(REQUESTED)
+//     // priority in inc order of stages
+//     // so level 1(min) is attended to first and the progresses
+//     priority Int @default(1)
+    
+//     approvalFlow ApprovalFlow @relation("requested_approval", fields: [approvalFlowId], references: [id])
+//     approvalFlowId String
+//     lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
+//     lecturerDesignationId String
+
+//     feedback String? // to limit feedback structure for now
+// }
+
+
+// Dean-created reusable Approval pipeline templates
+model PipelineTemplate {
+    id              String            @id @default(uuid())
+    name            String
+    description     String?
+    createdByDeanId String            // lecturerId of the Dean who created it
+    facultyId       String           
+    isActive        Boolean           @default(false)
+    activatedAt     DateTime?
+    activatedById   String?           // lecturerId of Dean who last activated
+    deactivatedAt   DateTime?
+    createdAt       DateTime          @default(now())
+    updatedAt       DateTime          @updatedAt
+
+    createdBy    Lecturer  @relation("TemplateCreator", fields: [createdByDeanId], references: [id])
+    activatedBy  Lecturer? @relation("TemplateActivator", fields: [activatedById], references: [id])
+    faculty      Faculty?    @relation(fields: [facultyId], references: [id])
+
+    steps       PipelineTemplateStep[]
+    activations PipelineTemplateActivation[]
+    flows       ApprovalFlow[]
+
+    @@map("pipeline_templates")
 }
 
-model ApprovalRequest {
-    id String @id @default(uuid())
-    status ApprovalStatus @default(REQUESTED)
-    // priority in inc order of stages
-    // so level 1(min) is attended to first and the progresses
-    priority Int @default(1)
-    
-    approvalFlow ApprovalFlow @relation("requested_approval", fields: [approvalFlowId], references: [id])
-    approvalFlowId String
-    lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
-    lecturerDesignationId String
+// Ordered role steps within a template
+model PipelineTemplateStep {
+    id                 String        @id @default(uuid())
+    pipelineTemplateId String
+    role               LecturerRole  // which role is required at this step
+    priority           Int           // order of approval (asc — lower goes first)
+    scope              PipelineScope // OFFERING_DEPT or TAKING_DEPT
+    part               Level?          // only if role == PART_ADVISER
 
-    feedback String? // to limit feedback structure for now
+    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id])
+
+    @@unique([pipelineTemplateId, priority])
+    @@map("pipeline_template_steps")
+}
+
+// Full history of template activations — one row per activation event
+model PipelineTemplateActivation {
+    id                 String            @id @default(uuid())
+    pipelineTemplateId String
+    activatedById      String            // lecturerId of the Dean
+    facultyId          String
+    activatedAt        DateTime          @default(now())
+    deactivatedAt      DateTime?         // null means still active
+
+    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id])
+    activatedBy      Lecturer         @relation(fields: [activatedById], references: [id])
+    faculty          Faculty?         @relation(fields: [facultyId], references: [id])
+
+    @@map("pipeline_template_activations")
+}
+
+// One pipeline per (courseSession + takingDept) pair
+// Rejection in one flow does NOT affect other taking dept flows
+model ApprovalFlow {
+    id                   String         @id @default(uuid())
+    courseSessionId      String
+    offeringDepartmentId String
+    takingDepartmentId   String
+    courseType           CourseType
+    level                Level      
+    approvalStatus       ApprovalStatus @default(REQUESTED)
+    pipelineTemplateId   String?        // null = default fixed pipeline was used
+    createdAt            DateTime       @default(now())
+    updatedAt            DateTime       @updatedAt
+
+    courseSession      CourseSession    @relation("approval_flow", fields: [courseSessionId], references: [id])
+    offeringDepartment Department       @relation("OfferingDept", fields: [offeringDepartmentId], references: [id])
+    takingDepartment   Department       @relation("TakingDept", fields: [takingDepartmentId], references: [id])
+    pipelineTemplate   PipelineTemplate? @relation(fields: [pipelineTemplateId], references: [id])
+
+    approvalRequests ApprovalRequest[]
+
+    @@unique([courseSessionId, takingDepartmentId, level], name: "uniqueApprovalFlow")
+    @@index([courseSessionId, approvalStatus])
+    @@map("approval_flows")
+}
+
+// Individual approval task — one per person per step per flow
+model ApprovalRequest {
+    id                   String         @id @default(uuid())
+    approvalFlowId       String
+    lecturerDesignationId String        // which LecturerDesignation handles this step
+    priority             Int
+    status               ApprovalStatus @default(REQUESTED)
+    feedback             String?
+    createdAt            DateTime       @default(now())
+    respondedAt          DateTime?
+
+    approvalFlow        ApprovalFlow        @relation(fields: [approvalFlowId], references: [id])
+    lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
+    snapshot ApprovalSnapshot? // created on APPROVED or REJECTED
+
+    @@unique([approvalFlowId, lecturerDesignationId, priority])
+    @@index([approvalFlowId, priority, status])
+    @@map("approval_requests")
+}
+
+// Immutable audit record — frozen at time of action, never mutated
+// Even if the lecturer's designation changes later, this stays accurate
+model ApprovalSnapshot {
+    id                String         @id @default(uuid())
+    approvalRequestId String         @unique
+    lecturerId        String         
+    lecturerName      String         
+    roleHeld          LecturerRole   
+    departmentId      String         
+    departmentName    String         
+    action            ApprovalStatus 
+    feedback          String?
+    timestamp         DateTime       @default(now())
+
+    approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id])
+
+    @@map("approval_snapshots")
 }

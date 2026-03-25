@@ -4,214 +4,357 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ApprovalRequest, ApprovalStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, Level } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
+import { PipelineResolverService } from './pipeline-resolver.service';
+import type {
   IApprovalPipelineStatus,
   IApprovalRequestResponse,
-  ICheckApprovalStatusResult,
+  IApprovalStepStatus,
+  IBuildPipelineResult,
+  ICourseSessionContext,
+  IPipelineStep,
 } from './approval.types';
 
 @Injectable()
 export class ApprovalManager {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly resolver: PipelineResolverService,
     private readonly logger: Logger,
   ) {}
 
-  /**
-   * Initiate approval flow (idempotent)
-   * @note always call since it's safely bounded
-   * @param courseSessionId string
-   * @param currentVersion number
-   * @return approvalFlow
-   */
-  async initApprovalFlow(courseSessionId: string, currentVersion: number) {
-    const approvalFlow = await this.prisma.approvalFlow.upsert({
-      where: {
-        uniqueApprovalFlow: {
-          courseRequestVersion: currentVersion,
-          courseSessionId,
-        },
-      },
-      update: {},
-      create: {
-        courseSession: { connect: { id: courseSessionId } },
-        courseRequestVersion: currentVersion,
-      },
-    });
-    return approvalFlow;
-  }
+  // ============================================================
+  // PIPELINE BUILDING
+  // One flow per (dept + level) from CourseSesnDeptAndLevel
+  // Template is resolved at faculty level (offering faculty)
+  // ============================================================
 
-  /**
-   * Retrieve latest (recent) approval flow
-   * @note can be rejected/accepted so check status
-   * @param courseSessionId,
-   */
-  async retrieveLatestApprovalFlow(courseSessionId: string) {
-    const approvalFlow = await this.prisma.approvalFlow.findFirst({
-      where: {
-        courseSessionId,
-      },
-      orderBy: {
-        courseRequestVersion: 'desc',
-      },
-    });
-    return approvalFlow ?? this.initApprovalFlow(courseSessionId, 1);
-  }
+  async buildApprovalPipeline(
+    courseSessionId: string,
+  ): Promise<IBuildPipelineResult> {
+    const context =
+      await this.resolver.resolveCourseSessionContext(courseSessionId);
 
-  static checkActiveApprovalFlow(
-    approval: Prisma.ApprovalFlowGetPayload<{
-      select: { approvalStatus: true };
-    }>,
-  ): boolean {
-    const activeApprovalStatus: ApprovalStatus[] = ['REQUESTED'];
-    return activeApprovalStatus.includes(approval.approvalStatus);
-  }
-
-  /**
-   * add lecturer to flow pipeline
-   * @param approvalFlowId string: the current approval flow, checks if active state
-   * @param lecturerDesignationId string
-   * @param priority number: the level of lect. which can follow the role enum
-   * @note priority is in asc order so 1 is first round to approve
-   */
-  async addLecturerDesignationToApproval(
-    approvalFlowId: string,
-    lecturerDesignationId: string,
-    priority: number,
-  ) {
-    const approval = await this.prisma.approvalFlow.findUnique({
-      where: { id: approvalFlowId },
-    });
-    if (!approval || ApprovalManager.checkActiveApprovalFlow(approval)) {
-      throw new Error('invalid approval flow, internal logic invalid');
-    }
-    const approvalRequest = await this.prisma.approvalRequest.create({
-      data: {
-        approvalFlowId,
-        lecturerDesignationId,
-        priority,
-      },
-    });
-    // todo: some form of notification for lecturer
     this.logger.log(
-      `New approval request for lecturer ${JSON.stringify(approvalRequest)}`,
+      `Building pipeline for course ${context.courseCode} ` +
+        `[${context.courseType}] — ${context.takingDeptLevels.length} dept/level pair(s)`,
     );
-    return approvalRequest;
+
+    // Template resolved at offering faculty level
+    const template = await this.resolver.resolveActiveTemplate(
+      context.offeringFacultyId,
+    );
+
+    const stepDefinitions: IPipelineStep[] = template
+      ? template.steps
+      : this.resolver.getDefaultSteps(context.courseType);
+
+    this.logger.log(
+      template
+        ? `Using custom template: "${template.name}"`
+        : `Using default fixed pipeline for ${context.courseType}`,
+    );
+
+    const flows: IBuildPipelineResult['flows'] = [];
+
+    for (const deptLevel of context.takingDeptLevels) {
+      const flow = await this.createFlowForDeptLevel(
+        context,
+        deptLevel.departmentId,
+        deptLevel.departmentName,
+        deptLevel.level,
+        stepDefinitions,
+        template?.id ?? null,
+      );
+      flows.push(flow);
+    }
+
+    return {
+      courseSessionId,
+      courseType: context.courseType,
+      templateUsed: template?.name ?? null,
+      flows,
+    };
   }
 
   /**
-   * respond to a request
-   * @param approvalRequestId string
-   * @param response IApprovalRequestResponse
+   * Create one ApprovalFlow + all ApprovalRequests for a (dept + level) pair.
+   * Idempotent — safe to call again on result re-upload.
    */
+  private async createFlowForDeptLevel(
+    context: ICourseSessionContext,
+    takingDeptId: string,
+    takingDeptName: string,
+    level: Level,
+    steps: IPipelineStep[],
+    templateId: string | null,
+  ) {
+    const resolvedSteps = await this.resolver.resolveStepsForFlow(
+      steps,
+      context.offeringDeptId,
+      takingDeptId,
+      level,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const flow = await tx.approvalFlow.upsert({
+        where: {
+          uniqueApprovalFlow: {
+            courseSessionId: context.id,
+            takingDepartmentId: takingDeptId,
+            level,
+          },
+        },
+        update: {},
+        create: {
+          courseSession:      { connect: { id: context.id } },
+          offeringDepartment: { connect: { id: context.offeringDeptId } },
+          takingDepartment:   { connect: { id: takingDeptId } },
+          level,
+          courseType:       context.courseType,
+          approvalStatus:   ApprovalStatus.REQUESTED,
+          pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
+        },
+      });
+
+      for (const step of resolvedSteps) {
+        await tx.approvalRequest.upsert({
+          where: {
+            approvalFlowId_lecturerDesignationId_priority: {
+              approvalFlowId: flow.id,
+              lecturerDesignationId: step.lecturerDesignationId,
+              priority: step.priority,
+            },
+          },
+          update: {},
+          create: {
+            approvalFlowId:        flow.id,
+            lecturerDesignationId: step.lecturerDesignationId,
+            priority:              step.priority,
+            status:                ApprovalStatus.REQUESTED,
+          },
+        });
+
+        this.logger.log(
+          `ApprovalRequest → ${step.role} (${step.lecturerName}) ` +
+            `for "${takingDeptName}" [${level}] at priority ${step.priority}`,
+        );
+      }
+
+      return {
+        flowId:              flow.id,
+        takingDepartmentId:  takingDeptId,
+        takingDepartmentName: takingDeptName,
+        level,
+        stepsCreated:        resolvedSteps.length,
+      };
+    });
+  }
+
+  // ============================================================
+  // RESPONDING TO APPROVAL REQUESTS
+  // ============================================================
+
   async respondToApprovalRequest(
     approvalRequestId: string,
     response: IApprovalRequestResponse,
   ) {
-    // check if this priority level can respond
     const approvalRequest = await this.prisma.approvalRequest.findUnique({
-      where: {
-        id: approvalRequestId,
-        lecturerDesignationId: response.lecturerDesignationId,
-      },
+      where: { id: approvalRequestId },
       include: {
+        lecturerDesignation: {
+          include: {
+            lecturer: { include: { department: true } },
+          },
+        },
         approvalFlow: {
-          select: {
-            approvalRequests: {
-              where: { status: 'REQUESTED', id: { not: approvalRequestId } },
+          include: {
+            approvalRequests: { orderBy: { priority: 'asc' } },
+          },
+        },
+      },
+    });
+
+    if (!approvalRequest) {
+      throw new NotFoundException(`Approval request ${approvalRequestId} not found`);
+    }
+
+    await this.resolver.assertLecturerOwnsDesignation(
+      approvalRequest.lecturerDesignationId,
+      response.lecturerDesignationId,
+    );
+
+    if (approvalRequest.status !== ApprovalStatus.REQUESTED) {
+      throw new BadRequestException(
+        `This request is already ${approvalRequest.status} and cannot be modified`,
+      );
+    }
+
+    // All lower-priority steps must be APPROVED first
+    const blockingRequest = approvalRequest.approvalFlow.approvalRequests.find(
+      (req) =>
+        req.priority < approvalRequest.priority &&
+        req.status !== ApprovalStatus.APPROVED,
+    );
+
+    if (blockingRequest) {
+      throw new BadRequestException(
+        `A lower-priority step (priority ${blockingRequest.priority}) ` +
+          `has status "${blockingRequest.status}" and must be resolved first`,
+      );
+    }
+
+    const isLastStep =
+      approvalRequest.approvalFlow.approvalRequests.filter(
+        (req) =>
+          req.id !== approvalRequestId &&
+          req.status === ApprovalStatus.REQUESTED,
+      ).length === 0;
+
+    const isRejection = response.approvalStatus === ApprovalStatus.REJECTED;
+    const lecturer = approvalRequest.lecturerDesignation.lecturer;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.approvalRequest.update({
+        where: { id: approvalRequestId },
+        data: {
+          status:      response.approvalStatus,
+          feedback:    response.feedback ?? null,
+          respondedAt: new Date(),
+        },
+      });
+
+      if (isLastStep || isRejection) {
+        await tx.approvalFlow.update({
+          where: { id: approvalRequest.approvalFlowId },
+          data: { approvalStatus: response.approvalStatus },
+        });
+      }
+
+      // Immutable audit snapshot
+      await tx.approvalSnapshot.create({
+        data: {
+          approvalRequestId,
+          lecturerId:     lecturer.id,
+          lecturerName:   `${lecturer.firstName} ${lecturer.lastName}`,
+          roleHeld:       approvalRequest.lecturerDesignation.role,
+          departmentId:   lecturer.departmentId,
+          departmentName: lecturer.department.name,
+          action:         response.approvalStatus,
+          feedback:       response.feedback ?? null,
+          timestamp:      new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Snapshot: ${lecturer.firstName} ${lecturer.lastName} ` +
+          `[${approvalRequest.lecturerDesignation.role}] → ${response.approvalStatus}`,
+      );
+
+      return updated;
+    });
+  }
+
+  // ============================================================
+  // STATUS & AUDIT
+  // ============================================================
+
+  async checkApprovalPipelineStatus(
+    approvalFlowId: string,
+  ): Promise<IApprovalPipelineStatus> {
+    const flow = await this.prisma.approvalFlow.findUnique({
+      where: { id: approvalFlowId },
+      include: {
+        approvalRequests: {
+          orderBy: { priority: 'asc' },
+          include: {
+            lecturerDesignation: {
+              include: { lecturer: true },
             },
           },
         },
       },
     });
-    if (!approvalRequest)
-      throw new NotFoundException('Approval request ID not found');
-    const pendingApprovalRequestsAfterThis =
-      approvalRequest.approvalFlow.approvalRequests.length;
-    const invalidApprovalRequest = await this.prisma.approvalRequest.findFirst({
-      where: {
-        priority: { lt: approvalRequest.priority },
-        status: { in: ['REQUESTED', 'REJECTED'] }, // meaning lower group hasn't agreed / rejected
-      },
-    });
-    if (invalidApprovalRequest)
-      throw new BadRequestException(
-        `The approval request has pending/rejected request: ${invalidApprovalRequest.id}, status: ${invalidApprovalRequest.status}`,
-      );
-    // also check if is last status and update total flow
-    return this.prisma.approvalRequest.update({
-      where: { id: approvalRequestId },
-      data: {
-        status: response.approvalStatus,
-        feedback: response.feedback,
-        ...(pendingApprovalRequestsAfterThis == 0 ||
-        response.approvalStatus === 'REJECTED'
-          ? {
-              approvalFlow: {
-                update: {
-                  data: { approvalStatus: response.approvalStatus },
-                },
-              },
-            }
-          : {}),
-      },
-    });
-  }
 
-  /**
-   * check the status of the pipeline
-   * @param approvalFlowId string
-   */
-  async checkApprovalPipelineStatus(
-    approvalFlowId: string,
-  ): Promise<IApprovalPipelineStatus> {
-    // @ch1booze @Moyin-Olugbenga
-    // todo: decide: use the approvalFlow status from db or use this manual check
-    // cleanly fetch all requests and sort from db
-    const approvalRequests = await this.prisma.approvalRequest.findMany({
-      where: {
-        approvalFlowId,
-      },
-      orderBy: {
-        priority: 'asc', // !!!
-      },
-    });
-    const matchedRequest = ApprovalManager.checkApprovalRequestsForStatus(
-      approvalRequests,
-      ['REJECTED', 'ACCEPTED'],
-    );
-    const lastPriorityLevel = approvalRequests[-1].priority; // need just last priority since ordered
+    if (!flow) {
+      throw new NotFoundException(`Approval flow ${approvalFlowId} not found`);
+    }
+
+    const requests = flow.approvalRequests;
+
+    if (!requests.length) {
+      throw new BadRequestException(`Flow ${approvalFlowId} has no steps`);
+    }
+
+    const maxPriorityLevel = requests[requests.length - 1].priority;
+    const currentStep = requests.find((r) => r.status !== ApprovalStatus.APPROVED);
+    const rejectedStep = requests.find((r) => r.status === ApprovalStatus.REJECTED);
+
+    const steps: IApprovalStepStatus[] = requests.map((req) => ({
+      priority:    req.priority,
+      role:        req.lecturerDesignation.role,
+      lecturerName: `${req.lecturerDesignation.lecturer.firstName} ${req.lecturerDesignation.lecturer.lastName}`,
+      status:      req.status,
+      respondedAt: req.respondedAt ?? undefined,
+      feedback:    req.feedback ?? undefined,
+    }));
+
     return {
-      maxPriorityLevel: lastPriorityLevel,
-      status: matchedRequest.foundStatus ?? 'REQUESTED',
-      seekPriorityLevel: matchedRequest.priority ?? lastPriorityLevel,
-      rejectionFeedback:
-        matchedRequest.found && matchedRequest.foundStatus === 'REJECTED'
-          ? approvalRequests[matchedRequest.index].feedback
-          : undefined,
+      flowId:              approvalFlowId,
+      courseSessionId:     flow.courseSessionId,
+      takingDepartmentId:  flow.takingDepartmentId,
+      level:               flow.level,
+      overallStatus:       flow.approvalStatus,
+      currentPriorityLevel: currentStep?.priority ?? maxPriorityLevel,
+      maxPriorityLevel,
+      steps,
+      rejectionFeedback:   rejectedStep?.feedback ?? undefined,
     };
   }
 
-  // check by priority group for a status
-  private static checkApprovalRequestsForStatus(
-    approvalRequests: ApprovalRequest[],
-    checkStatus: ApprovalStatus[],
-  ): ICheckApprovalStatusResult {
-    const matchedRequestIdx = approvalRequests.findIndex(
-      (req) => checkStatus.includes[req.status],
-    );
-    const matchedRequest =
-      matchedRequestIdx !== -1
-        ? approvalRequests[matchedRequestIdx]
-        : undefined;
-    return {
-      found: !!matchedRequest,
-      index: matchedRequestIdx,
-      priority: matchedRequest?.priority,
-      approvalRequestId: matchedRequest?.id,
-      foundStatus: matchedRequest?.status,
-    };
+  async checkAllFlowsForCourseSession(courseSessionId: string) {
+    const flows = await this.prisma.approvalFlow.findMany({
+      where: { courseSessionId },
+      include: {
+        takingDepartment: { select: { name: true } },
+        approvalRequests: {
+          select: { status: true, priority: true },
+          orderBy: { priority: 'asc' },
+        },
+      },
+      orderBy: { takingDepartmentId: 'asc' },
+    });
+
+    return flows.map((flow) => ({
+      flowId:              flow.id,
+      takingDepartmentId:  flow.takingDepartmentId,
+      takingDepartmentName: flow.takingDepartment.name,
+      level:               flow.level,
+      overallStatus:       flow.approvalStatus,
+      courseType:          flow.courseType,
+      totalSteps:          flow.approvalRequests.length,
+      approvedSteps:       flow.approvalRequests.filter(
+        (r) => r.status === ApprovalStatus.APPROVED,
+      ).length,
+    }));
+  }
+
+  async getApprovalAuditTrail(approvalFlowId: string) {
+    const snapshots = await this.prisma.approvalSnapshot.findMany({
+      where: { approvalRequest: { approvalFlowId } },
+      include: { approvalRequest: { select: { priority: true } } },
+      orderBy: { timestamp: 'asc' },
+    });
+
+    return snapshots.map((snap) => ({
+      priority:       snap.approvalRequest.priority,
+      lecturerName:   snap.lecturerName,
+      roleHeld:       snap.roleHeld,
+      departmentName: snap.departmentName,
+      action:         snap.action,
+      feedback:       snap.feedback,
+      timestamp:      snap.timestamp,
+    }));
   }
 }
