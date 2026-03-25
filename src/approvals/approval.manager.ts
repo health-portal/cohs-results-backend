@@ -7,9 +7,9 @@ import {
 import { ApprovalStatus, Level } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PipelineResolverService } from './pipeline-resolver.service';
+import { RespondToApprovalRequestDto } from './approval.dto';
 import type {
   IApprovalPipelineStatus,
-  IApprovalRequestResponse,
   IApprovalStepStatus,
   IBuildPipelineResult,
   ICourseSessionContext,
@@ -158,7 +158,7 @@ export class ApprovalManager {
 
   async respondToApprovalRequest(
     approvalRequestId: string,
-    response: IApprovalRequestResponse,
+    response: RespondToApprovalRequestDto,
   ) {
     const approvalRequest = await this.prisma.approvalRequest.findUnique({
       where: { id: approvalRequestId },

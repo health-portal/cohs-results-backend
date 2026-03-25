@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PipelineResolverService } from './pipeline-resolver.service';
-import type {
-  IActivateTemplateDto,
-  ICreatePipelineTemplateDto,
-} from './approval.types';
+import {
+  ActivateTemplateDto,
+  CreatePipelineTemplateDto,
+} from './approval.dto';
 
 @Injectable()
 export class TemplateManagerService {
@@ -24,7 +24,7 @@ export class TemplateManagerService {
   // Dean creates a template — facultyId auto-resolved from their designation
   // ============================================================
 
-  async createTemplate(dto: ICreatePipelineTemplateDto) {
+  async createTemplate(dto: CreatePipelineTemplateDto) {
     await this.resolver.assertIsDeanOfFaculty(dto.createdByDeanId);
 
     const facultyId = await this.resolver.resolveFacultyFromDean(
@@ -65,7 +65,7 @@ export class TemplateManagerService {
   // One active template per faculty — Dean can only activate for their own faculty
   // ============================================================
 
-  async activateTemplate(dto: IActivateTemplateDto) {
+  async activateTemplate(dto: ActivateTemplateDto) {
     await this.resolver.assertIsDeanOfFaculty(dto.activatedByDeanId);
 
     const facultyId = await this.resolver.resolveFacultyFromDean(
