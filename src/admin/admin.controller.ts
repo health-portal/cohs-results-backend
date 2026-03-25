@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { User } from 'src/auth/user.decorator';
-import { AddAdminBody, UpdateAdminBody } from './admin.dto';
+import { AddAdminBody, UpdateAdminBody, UpdateLecturerDesignationDto } from './admin.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -9,6 +9,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
@@ -59,5 +60,23 @@ export class AdminController {
   ) {
     const { adminId } = user.userData as AdminData;
     return await this.adminService.updateProfile(adminId, body);
+  }
+
+  @ApiOperation({
+  summary: 'Update lecturer designation',
+  description:
+    'Assigns or updates a role for a lecturer. ' +
+    'If the lecturer already holds the exact role (and level for PART_ADVISER), ' +
+    'it is kept as-is. Otherwise a new designation is created. '
+})
+  @ApiParam({ name: 'lecturerId', description: 'ID of the lecturer to update' })
+  @ApiBody({ type: UpdateLecturerDesignationDto })
+  @ApiOkResponse({ description: 'Lecturer designation updated successfully' })
+  @Patch('lecturers/:lecturerId/designation')
+  async updateLecturerDesignation(
+    @Param('lecturerId') lecturerId: string,
+    @Body() body: UpdateLecturerDesignationDto,
+  ) {
+    return await this.adminService.updateLecturerDesignation(lecturerId, body);
   }
 }

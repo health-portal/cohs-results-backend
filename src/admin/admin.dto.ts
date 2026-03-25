@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LecturerRole, Level } from '@prisma/client';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class AddAdminBody {
   @ApiProperty()
@@ -23,3 +24,24 @@ export class UpdateAdminBody {
   @IsOptional()
   phone?: string;
 }
+
+
+export class UpdateLecturerDesignationDto {
+  @ApiProperty({
+    description: 'The role to assign to the lecturer',
+    enum: LecturerRole,
+    example: LecturerRole.HOD,
+  })
+  @IsEnum(LecturerRole)
+  role: LecturerRole;
+ 
+  @ApiPropertyOptional({
+    description: 'Student level — required only when role is PART_ADVISER',
+    enum: Level,
+    example: Level.LVL_300,
+  })
+  @IsOptional()
+  @IsEnum(Level)
+  part?: Level;
+}
+ 
