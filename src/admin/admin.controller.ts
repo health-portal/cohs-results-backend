@@ -22,7 +22,7 @@ import { AdminProfileRes } from './admin.responses';
 @ApiBearerAuth('accessToken')
 @Controller('admin')
 @AuthRoles([UserRole.ADMIN])
-// @UseGuards(JwtAuthGuard, UserRoleGuard)
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
