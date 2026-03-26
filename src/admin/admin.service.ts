@@ -84,44 +84,34 @@ export class AdminService {
   }
 
   async updateLecturerDesignation(
-  lecturerId: string,
-  body: UpdateLecturerDesignationDto,
-): Promise<void> {
-  // Guard: PART_ADVISER must have a level
-  if (body.role === LecturerRole.PART_ADVISER && !body.part) {
-    throw new BadRequestException(
-      'part (Level) is required when assigning the PART_ADVISER role',
-    );
-  }
- 
-  const lecturer = await this.prisma.lecturer.findUnique({
-    where: { id: lecturerId },
-    select: { id: true, departmentId: true },
-  });
- 
-  if (!lecturer) {
-    throw new NotFoundException(`Lecturer ${lecturerId} not found`);
-  }
- 
-  await this.prisma.$transaction(async (tx) => {
-    if (body.role !== LecturerRole.COURSE_LECTURER) {
-      // Remove any existing non-COURSE_LECTURER designation before assigning new role
-      await tx.lecturerDesignation.deleteMany({
-        where: {
-          lecturerId: lecturer.id,
-          role: { not: LecturerRole.COURSE_LECTURER },
-        },
-      });
+    lecturerId: string,
+    body: UpdateLecturerDesignationDto,
+  ): Promise<void> {
+    // Guard: PART_ADVISER must have a level
+    if (body.role === LecturerRole.PART_ADVISER && !body.part) {
+      throw new BadRequestException(
+        'part (Level) is required when assigning the PART_ADVISER role',
+      );
     }
- 
-    // Upsert the new designation — safe for both COURSE_LECTURER and other roles
-    await tx.lecturerDesignation.upsert({
+  
+    // Verify the lecturer exists and get their departmentId for entity
+    const lecturer = await this.prisma.lecturer.findUnique({
+      where: { id: lecturerId },
+      select: { id: true, departmentId: true },
+    });
+  
+    if (!lecturer) {
+      throw new NotFoundException(`Lecturer ${lecturerId} not found`);
+    }
+  
+    // Upsert — update if this exact role+part combo exists, create if not
+    await this.prisma.lecturerDesignation.upsert({
       where: {
         designation: {
           entity:     lecturer.departmentId,
           role:       body.role,
           lecturerId: lecturer.id,
-          part:       body.part,
+          ...(body.part ? { part: body.part } : {}),
         } as any,
       },
       update: {},
@@ -132,7 +122,6 @@ export class AdminService {
         ...(body.part ? { part: body.part } : {}),
       },
     });
-  });
   }
 
   async activateFixtureLecturers({ emails, password }: ActivateFixtureLecturersBody) {

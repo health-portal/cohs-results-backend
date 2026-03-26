@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -23,9 +24,12 @@ import {
   DeactivateTemplateDto,
   RespondToApprovalRequestDto,
 } from './approval.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { UserRoleGuard } from 'src/auth/role.guard';
 
 @ApiTags('Approval')
 @Controller('approval')
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class ApprovalController {
   constructor(
     private readonly approvalManager: ApprovalManager,
