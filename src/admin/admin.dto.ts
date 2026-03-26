@@ -44,4 +44,22 @@ export class UpdateLecturerDesignationDto {
   @IsEnum(Level)
   part?: Level;
 }
+
+export class ActivateFixtureLecturersBody {
+  @ApiProperty({
+    description: 'Emails of lecturer accounts to activate with the provided password',
+    type: [String],
+    example: ['dean.e2e123456@example.com', 'coord.e2e123456@example.com'],
+  })
+  @IsEmail({}, { each: true })
+  emails: string[];
+
+  @ApiProperty({
+    description: 'Test password to assign to all listed lecturers',
+    example: 'TestPass123!',
+  })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
  

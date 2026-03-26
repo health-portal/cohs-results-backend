@@ -1,7 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { User } from 'src/auth/user.decorator';
-import { AddAdminBody, UpdateAdminBody, UpdateLecturerDesignationDto } from './admin.dto';
+import {
+  ActivateFixtureLecturersBody,
+  AddAdminBody,
+  UpdateAdminBody,
+  UpdateLecturerDesignationDto,
+} from './admin.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -78,5 +83,23 @@ export class AdminController {
     @Body() body: UpdateLecturerDesignationDto,
   ) {
     return await this.adminService.updateLecturerDesignation(lecturerId, body);
+  }
+
+  @ApiOperation({ summary: 'Activate fixture lecturers with a shared test password' })
+  @ApiBody({ type: ActivateFixtureLecturersBody })
+  @ApiOkResponse({
+    description: 'Fixture lecturers processed',
+    schema: {
+      type: 'object',
+      properties: {
+        activatedCount: { type: 'number' },
+        skippedCount: { type: 'number' },
+        notFoundEmails: { type: 'array', items: { type: 'string' } },
+      },
+    },
+  })
+  @Post('fixtures/activate-lecturers')
+  async activateFixtureLecturers(@Body() body: ActivateFixtureLecturersBody) {
+    return await this.adminService.activateFixtureLecturers(body);
   }
 }

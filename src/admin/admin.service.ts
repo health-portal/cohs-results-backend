@@ -1,9 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AddAdminBody, UpdateAdminBody, UpdateLecturerDesignationDto } from './admin.dto';
+import {
+  ActivateFixtureLecturersBody,
+  AddAdminBody,
+  UpdateAdminBody,
+  UpdateLecturerDesignationDto,
+} from './admin.dto';
 import { LecturerRole, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { AdminProfileRes } from './admin.responses';
+import * as argon2 from 'argon2';
 
 @Injectable()
 export class AdminService {
@@ -127,5 +133,50 @@ export class AdminService {
       },
     });
   });
+  }
+
+  async activateFixtureLecturers({ emails, password }: ActivateFixtureLecturersBody) {
+    const uniqueEmails = [...new Set(emails.map((email) => email.trim().toLowerCase()))];
+
+    if (!uniqueEmails.length) {
+      throw new BadRequestException('emails must contain at least one lecturer email');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.LECTURER,
+        email: { in: uniqueEmails },
+      },
+      select: { id: true, email: true, password: true },
+    });
+
+    const foundByEmail = new Set(users.map((user) => user.email.toLowerCase()));
+    const notFoundEmails = uniqueEmails.filter((email) => !foundByEmail.has(email));
+
+    const hash = await argon2.hash(password);
+    let activatedCount = 0;
+    let skippedCount = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const user of users) {
+        if (user.password) {
+          skippedCount += 1;
+          continue;
+        }
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: { password: hash },
+        });
+
+        activatedCount += 1;
+      }
+    });
+
+    return {
+      activatedCount,
+      skippedCount,
+      notFoundEmails,
+    };
   }
 }
