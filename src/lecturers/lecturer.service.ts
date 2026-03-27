@@ -242,4 +242,5 @@ export class LecturerService {
       email: lecturer.user.email,
     };
   }
+  
 }

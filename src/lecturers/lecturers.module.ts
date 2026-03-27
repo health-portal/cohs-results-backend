@@ -4,10 +4,11 @@ import { LecturerService } from './lecturer.service';
 import { LecturersController } from './lecturers.controller';
 import { LecturerController } from './lecturer.controller';
 import { MessageQueueModule } from 'src/message-queue/message-queue.module';
+import { ApprovalsService } from 'src/approvals/approvals.service';
 
 @Module({
   imports: [MessageQueueModule],
   controllers: [LecturersController, LecturerController],
-  providers: [LecturersService, LecturerService],
+  providers: [LecturersService, LecturerService, ApprovalsService],
 })
 export class LecturersModule {}

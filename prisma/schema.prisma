@@ -149,6 +149,7 @@ model Lecturer {
     department      Department            @relation(fields: [departmentId], references: [id])
     designations    LecturerDesignation[]
     coursesLectured CourseLecturer[]
+    resultUploads   ResultUpload[]
     
     createdTemplates      PipelineTemplate[]         @relation("TemplateCreator")
     activatedTemplates    PipelineTemplate[]         @relation("TemplateActivator")
@@ -321,7 +322,8 @@ model CourseSession {
     enrollments    Enrollment[]
     deptsAndLevels CourseSesnDeptAndLevel[]
 
-    approvalRequests ApprovalFlow[] @relation("approval_flow")
+    approvalFlows ApprovalFlow[] @relation("approval_flow")
+    resultUploads    ResultUpload[]
 
     @@unique([courseId, sessionId], name: "uniqueCourseSession")
     @@index([courseId])
@@ -417,6 +419,7 @@ model CourseSesnDeptAndLevel {
     department      Department    @relation(fields: [departmentId], references: [id])
     courseSessionId String
     courseSession   CourseSession @relation(fields: [courseSessionId], references: [id])
+    resultUploads   ResultUpload[]
 
     @@unique([courseSessionId, departmentId, level], name: "uniqueCourseSesnDeptAndLevel")
     @@index([courseSessionId])
@@ -463,6 +466,25 @@ model Result {
     @@index([enrollmentId])
     @@map("results")
 }
+model ResultUpload {
+    id        String   @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    courseSessionId       String
+    courseSesnDeptLevelId String
+    uploadedById          String   // lecturerId of the uploader
+    fileId                String   @unique // the uploaded result file
+
+    courseSession       CourseSession          @relation(fields: [courseSessionId], references: [id])
+    courseSesnDeptLevel CourseSesnDeptAndLevel @relation(fields: [courseSesnDeptLevelId], references: [id])
+    uploadedBy          Lecturer               @relation(fields: [uploadedById], references: [id])
+    file                File                   @relation(fields: [fileId], references: [id])
+
+    @@unique([courseSessionId, courseSesnDeptLevelId], name: "uniqueResultUpload")
+    @@index([uploadedById])
+    @@map("result_uploads")
+}
 
 model File {
     id        String    @id @default(uuid())
@@ -476,6 +498,9 @@ model File {
     isProcessed Boolean      @default(false)
     category    FileCategory
     metadata    Json?
+
+
+    resultUpload  ResultUpload?
 
     userId String
     user   User   @relation(fields: [userId], references: [id])
@@ -498,36 +523,6 @@ model AuditLog {
     @@index([createdAt])
     @@map("audit_logs")
 }
-
-// Approval pipeline for results
-// model ApprovalFlow {
-//     id String @id @default(uuid())
-//     courseSession CourseSession @relation("approval_flow", fields: [courseSessionId], references: [id])
-//     courseSessionId String
-
-//     approvalRequests ApprovalRequest[] @relation("requested_approval")
-
-//     approvalStatus ApprovalStatus @default(REQUESTED)
-//     courseRequestVersion Int @default(1) // Just to track how many times approval's broken
-
-//     @@unique([courseSessionId, courseRequestVersion], name: "uniqueApprovalFlow")
-// }
-
-// model ApprovalRequest {
-//     id String @id @default(uuid())
-//     status ApprovalStatus @default(REQUESTED)
-//     // priority in inc order of stages
-//     // so level 1(min) is attended to first and the progresses
-//     priority Int @default(1)
-    
-//     approvalFlow ApprovalFlow @relation("requested_approval", fields: [approvalFlowId], references: [id])
-//     approvalFlowId String
-//     lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
-//     lecturerDesignationId String
-
-//     feedback String? // to limit feedback structure for now
-// }
-
 
 // Dean-created reusable Approval pipeline templates
 model PipelineTemplate {

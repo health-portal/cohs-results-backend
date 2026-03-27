@@ -38,6 +38,7 @@ import {
   LecturerCourseSessionRes,
   LecturerProfileRes,
 } from './lecturers.responses';
+import { ApprovalsService } from 'src/approvals/approvals.service';
 
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
@@ -45,7 +46,9 @@ import {
 @AuthRoles([UserRole.LECTURER])
 @UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
-  constructor(private readonly lecturerService: LecturerService) {}
+  constructor(private readonly lecturerService: LecturerService,
+    private readonly approvalService: ApprovalsService,
+  ) {}
 
   private getLecturerId(user: UserPayload) {
     const lecturerData = user.userData as LecturerData;
@@ -214,4 +217,36 @@ export class LecturerController {
     const lecturerId = this.getLecturerId(user);
     return await this.lecturerService.getProfile(lecturerId);
   }
+
+  @Post('dept-level/:courseSesnDeptLevelId/results')
+  @ApiOperation({
+    summary: 'Upload department result',
+    description:
+      'Lecturer uploads a result file for a specific dept+level in a course session. ' +
+      'Triggers the approval pipeline automatically. Safe to call again on re-upload.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDepartmentResult(
+    @User() user: UserPayload,
+    @Param('courseSesnDeptLevelId') courseSesnDeptLevelId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const { lecturerId } = user.userData as LecturerData;
+    return this.approvalService.uploadDepartmentResult(
+      lecturerId,
+      courseSesnDeptLevelId,
+      file,
+    );
+  }
+
+
 }

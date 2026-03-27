@@ -69,6 +69,22 @@ export class ApprovalManager {
       );
       flows.push(flow);
     }
+    // Notify the first approver in each flow
+    for (const flow of flows) {
+      const firstRequest = await this.getNextPendingRequest(flow.flowId);
+
+      if (firstRequest) {
+        // 🔔 Hand off to your notification function here
+        const notificationPayload = {
+          lecturerId: firstRequest.lecturerDesignation.lecturer.id,
+          title:      'Result Awaiting Your Approval',
+          message:    `A result has been uploaded for your review ` +
+                      `as ${firstRequest.lecturerDesignation.role}. ` +
+                      `Please log in and respond.`,
+        };
+        // await this.notificationService.send(notificationPayload);
+      }
+    }
 
     return {
       courseSessionId,
@@ -216,45 +232,108 @@ export class ApprovalManager {
     const lecturer = approvalRequest.lecturerDesignation.lecturer;
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.approvalRequest.update({
-        where: { id: approvalRequestId },
-        data: {
-          status:      response.approvalStatus,
-          feedback:    response.feedback ?? null,
-          respondedAt: new Date(),
-        },
-      });
+  const updated = await tx.approvalRequest.update({
+    where: { id: approvalRequestId },
+    data: {
+      status:      response.approvalStatus,
+      feedback:    response.feedback ?? null,
+      respondedAt: new Date(),
+    },
+  });
 
-      if (isLastStep || isRejection) {
-        await tx.approvalFlow.update({
-          where: { id: approvalRequest.approvalFlowId },
-          data: { approvalStatus: response.approvalStatus },
-        });
-      }
-
-      // Immutable audit snapshot
-      await tx.approvalSnapshot.create({
-        data: {
-          approvalRequestId,
-          lecturerId:     lecturer.id,
-          lecturerName:   `${lecturer.firstName} ${lecturer.lastName}`,
-          roleHeld:       approvalRequest.lecturerDesignation.role,
-          departmentId:   lecturer.departmentId,
-          departmentName: lecturer.department.name,
-          action:         response.approvalStatus,
-          feedback:       response.feedback ?? null,
-          timestamp:      new Date(),
-        },
-      });
-
-      this.logger.log(
-        `Snapshot: ${lecturer.firstName} ${lecturer.lastName} ` +
-          `[${approvalRequest.lecturerDesignation.role}] → ${response.approvalStatus}`,
-      );
-
-      return updated;
+  if (isLastStep || isRejection) {
+    await tx.approvalFlow.update({
+      where: { id: approvalRequest.approvalFlowId },
+      data: { approvalStatus: response.approvalStatus },
     });
   }
+
+  // Immutable audit snapshot
+  await tx.approvalSnapshot.create({
+    data: {
+      approvalRequestId,
+      lecturerId:     lecturer.id,
+      lecturerName:   `${lecturer.firstName} ${lecturer.lastName}`,
+      roleHeld:       approvalRequest.lecturerDesignation.role,
+      departmentId:   lecturer.departmentId,
+      departmentName: lecturer.department.name,
+      action:         response.approvalStatus,
+      feedback:       response.feedback ?? null,
+      timestamp:      new Date(),
+    },
+  });
+
+// ---- AFTER transaction ----
+
+if (isRejection) {
+  // Reset the entire flow so it starts from priority 1 again
+  await this.resetApprovalFlow(approvalRequest.approvalFlowId);
+
+  // Fetch the uploader (course lecturer) to notify them of rejection
+  const resultUpload = await this.prisma.resultUpload.findFirst({
+    where: {
+      courseSession: {
+        approvalFlows: { some: { id: approvalRequest.approvalFlowId } },
+      },
+    },
+    include: {
+      uploadedBy: true,
+    },
+  });
+
+  if (resultUpload) {
+    // 🔔 Hand off to your notification function here
+    const notificationPayload = {
+      lecturerId: resultUpload.uploadedById,
+      title:      'Result Rejected',
+      message:    `Your uploaded result was rejected by ${lecturer.firstName} ${lecturer.lastName} ` +
+                  `[${approvalRequest.lecturerDesignation.role}]. ` +
+                  `Reason: ${response.feedback ?? 'No reason provided'}. ` +
+                  `The approval flow has been reset — please review and re-upload.`,
+    };
+    // await this.notificationService.send(notificationPayload);
+  }
+} else if (!isLastStep) {
+  // Approved but not last step — notify the next person in line
+  const nextRequest = await this.getNextPendingRequest(
+    approvalRequest.approvalFlowId,
+  );
+
+  if (nextRequest) {
+    // 🔔 Hand off to your notification function here
+    const notificationPayload = {
+      lecturerId: nextRequest.lecturerDesignation.lecturer.id,
+      title:      'Result Awaiting Your Approval',
+      message:    `A result upload for course session requires your approval ` +
+                  `as ${nextRequest.lecturerDesignation.role}. ` +
+                  `Please review and respond.`,
+    };
+    // await this.notificationService.send(notificationPayload);
+  }
+} else {
+  // Last step approved — notify the uploader that the result is fully approved
+  const resultUpload = await this.prisma.resultUpload.findFirst({
+    where: {
+      courseSession: {
+        approvalFlows: { some: { id: approvalRequest.approvalFlowId } },
+      },
+    },
+    include: { uploadedBy: true },
+  });
+
+  if (resultUpload) {
+    // 🔔 Hand off to your notification function here
+    const notificationPayload = {
+      lecturerId: resultUpload.uploadedById,
+      title:      'Result Fully Approved',
+      message:    `Your uploaded result has been approved by all required parties.`,
+    };
+  }
+}
+
+  }
+) 
+}
 
   // ============================================================
   // STATUS & AUDIT
@@ -357,4 +436,44 @@ export class ApprovalManager {
       timestamp:      snap.timestamp,
     }));
   }
+
+
+async resetApprovalFlow(approvalFlowId: string): Promise<void> {
+  await this.prisma.$transaction(async (tx) => {
+    await tx.approvalRequest.updateMany({
+      where: { approvalFlowId },
+      data: {
+        status:      ApprovalStatus.REQUESTED,
+        feedback:    null,
+        respondedAt: null,
+      },
+    });
+
+    await tx.approvalFlow.update({
+      where: { id: approvalFlowId },
+      data: { approvalStatus: ApprovalStatus.REQUESTED },
+    });
+  });
 }
+
+/**
+ * Get the next pending ApprovalRequest in a flow (lowest priority with REQUESTED status).
+ * Returns null if no pending requests remain.
+ */
+async getNextPendingRequest(approvalFlowId: string) {
+  return this.prisma.approvalRequest.findFirst({
+    where: {
+      approvalFlowId,
+      status: ApprovalStatus.REQUESTED,
+    },
+    orderBy: { priority: 'asc' },
+    include: {
+      lecturerDesignation: {
+        include: { lecturer: true },
+      },
+    },
+  });
+}
+
+}
+
