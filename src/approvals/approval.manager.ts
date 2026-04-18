@@ -24,14 +24,8 @@ export class ApprovalManager {
     private readonly logger: Logger,
   ) {}
 
-  // ============================================================
-  // PIPELINE BUILDING
-  // One flow per (dept + level) from CourseSesnDeptAndLevel
-  // Template is resolved at faculty level (offering faculty)
-  // ============================================================
-
   async buildApprovalPipeline(
-    courseSessionId: string,
+    courseSessionId: string, lecturerId: string
   ): Promise<IBuildPipelineResult> {
     const context =
       await this.resolver.resolveCourseSessionContext(courseSessionId);
@@ -41,7 +35,6 @@ export class ApprovalManager {
         `[${context.courseType}] — ${context.takingDeptLevels.length} dept/level pair(s)`,
     );
 
-    // Template resolved at offering faculty level
     const template = await this.resolver.resolveActiveTemplate(
       context.offeringFacultyId,
     );
@@ -61,6 +54,7 @@ export class ApprovalManager {
     for (const deptLevel of context.takingDeptLevels) {
       const flow = await this.createFlowForDeptLevel(
         context,
+        lecturerId,
         deptLevel.departmentId,
         deptLevel.departmentName,
         deptLevel.level,
@@ -69,12 +63,10 @@ export class ApprovalManager {
       );
       flows.push(flow);
     }
-    // Notify the first approver in each flow
     for (const flow of flows) {
       const firstRequest = await this.getNextPendingRequest(flow.flowId);
 
       if (firstRequest) {
-        // 🔔 Hand off to your notification function here
         const notificationPayload = {
           lecturerId: firstRequest.lecturerDesignation.lecturer.id,
           title:      'Result Awaiting Your Approval',
@@ -100,6 +92,7 @@ export class ApprovalManager {
    */
   private async createFlowForDeptLevel(
     context: ICourseSessionContext,
+    lecturerId: string,
     takingDeptId: string,
     takingDeptName: string,
     level: Level,
@@ -127,6 +120,7 @@ export class ApprovalManager {
           courseSession:      { connect: { id: context.id } },
           offeringDepartment: { connect: { id: context.offeringDeptId } },
           takingDepartment:   { connect: { id: takingDeptId } },
+          lecturer: { connect: { id: lecturerId } },
           level,
           courseType:       context.courseType,
           approvalStatus:   ApprovalStatus.REQUESTED,
@@ -168,9 +162,6 @@ export class ApprovalManager {
     });
   }
 
-  // ============================================================
-  // RESPONDING TO APPROVAL REQUESTS
-  // ============================================================
 
   async respondToApprovalRequest(
     approvalRequestId: string,
@@ -207,7 +198,6 @@ export class ApprovalManager {
       );
     }
 
-    // All lower-priority steps must be APPROVED first
     const blockingRequest = approvalRequest.approvalFlow.approvalRequests.find(
       (req) =>
         req.priority < approvalRequest.priority &&
@@ -248,7 +238,6 @@ export class ApprovalManager {
     });
   }
 
-  // Immutable audit snapshot
   await tx.approvalSnapshot.create({
     data: {
       approvalRequestId,
@@ -262,8 +251,6 @@ export class ApprovalManager {
       timestamp:      new Date(),
     },
   });
-
-// ---- AFTER transaction ----
 
 if (isRejection) {
   // Reset the entire flow so it starts from priority 1 again
@@ -282,11 +269,10 @@ if (isRejection) {
   });
 
   if (resultUpload) {
-    // 🔔 Hand off to your notification function here
     const notificationPayload = {
       lecturerId: resultUpload.uploadedById,
       title:      'Result Rejected',
-      message:    `Your uploaded result was rejected by ${lecturer.firstName} ${lecturer.lastName} ` +
+      message:    `Your uploaded result was rejected by ${lecturer.title} ${lecturer.firstName} ${lecturer.lastName} ` +
                   `[${approvalRequest.lecturerDesignation.role}]. ` +
                   `Reason: ${response.feedback ?? 'No reason provided'}. ` +
                   `The approval flow has been reset — please review and re-upload.`,
@@ -294,13 +280,11 @@ if (isRejection) {
     // await this.notificationService.send(notificationPayload);
   }
 } else if (!isLastStep) {
-  // Approved but not last step — notify the next person in line
   const nextRequest = await this.getNextPendingRequest(
     approvalRequest.approvalFlowId,
   );
 
   if (nextRequest) {
-    // 🔔 Hand off to your notification function here
     const notificationPayload = {
       lecturerId: nextRequest.lecturerDesignation.lecturer.id,
       title:      'Result Awaiting Your Approval',
@@ -311,7 +295,6 @@ if (isRejection) {
     // await this.notificationService.send(notificationPayload);
   }
 } else {
-  // Last step approved — notify the uploader that the result is fully approved
   const resultUpload = await this.prisma.resultUpload.findFirst({
     where: {
       courseSession: {
@@ -322,7 +305,6 @@ if (isRejection) {
   });
 
   if (resultUpload) {
-    // 🔔 Hand off to your notification function here
     const notificationPayload = {
       lecturerId: resultUpload.uploadedById,
       title:      'Result Fully Approved',
@@ -334,10 +316,6 @@ if (isRejection) {
   }
 ) 
 }
-
-  // ============================================================
-  // STATUS & AUDIT
-  // ============================================================
 
   async checkApprovalPipelineStatus(
     approvalFlowId: string,
@@ -474,6 +452,119 @@ async getNextPendingRequest(approvalFlowId: string) {
     },
   });
 }
+
+
+async pendingFacultyApproval(departmentId: string) {
+    const requests = await this.prisma.approvalRequest.findMany({
+      where: {
+        status: ApprovalStatus.REQUESTED,
+        lecturerDesignation: {
+          lecturer: { departmentId },
+        },
+      },
+      include: {
+        approvalFlow: {
+          include: {
+            courseSession: {
+              include: {
+                course:        { select: { code: true, title: true } },
+                resultUploads: {
+                  include: {
+                    uploadedBy: { select: { firstName: true, lastName: true } },
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+            takingDepartment: { select: { name: true } },
+          },
+        },
+        lecturerDesignation: { select: { role: true, part: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  
+    return this.mapPendingRequests(requests);
+  
+}
+async pendingDepartmentApproval(facultyId: string) {
+  
+    const requests = await this.prisma.approvalRequest.findMany({
+      where: {
+        status: ApprovalStatus.REQUESTED,
+        lecturerDesignation: {
+          lecturer: {
+            department: { facultyId },
+          },
+        },
+      },
+      include: {
+        approvalFlow: {
+          include: {
+            courseSession: {
+              include: {
+                course:        { select: { code: true, title: true } },
+                resultUploads: {
+                  include: {
+                    uploadedBy: { select: { firstName: true, lastName: true } },
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+            takingDepartment: { select: { name: true } },
+            offeringDepartment: { select: { name: true } },
+          },
+        },
+        lecturerDesignation: {
+          select: {
+            role: true,
+            part: true,
+            lecturer: {
+              select: {
+                firstName:  true,
+                lastName:   true,
+                department: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  
+    return this.mapPendingRequests(requests, true);
+}
+
+private mapPendingRequests(requests: any[], includeDept = false) {
+  return requests.map((req) => ({
+    requestId:      req.id,
+    priority:       req.priority,
+    role:           req.lecturerDesignation.role,
+    part:           req.lecturerDesignation.part,
+    ...(includeDept && {
+      assignedTo: `${req.lecturerDesignation.lecturer.firstName} ${req.lecturerDesignation.lecturer.lastName}`,
+      department: req.lecturerDesignation.lecturer.department.name,
+    }),
+    takingDept:     req.approvalFlow.takingDepartment.name,
+    ...(includeDept && {
+      offeringDept: req.approvalFlow.offeringDepartment.name,
+    }),
+    level:          req.approvalFlow.level,
+    courseCode:     req.approvalFlow.courseSession.course.code,
+    courseTitle:    req.approvalFlow.courseSession.course.title,
+    uploadedBy:     req.approvalFlow.courseSession.resultUploads[0]
+                      ? `${req.approvalFlow.courseSession.resultUploads[0].uploadedBy.firstName} ${req.approvalFlow.courseSession.resultUploads[0].uploadedBy.lastName}`
+                      : null,
+    resultFile:     req.approvalFlow.courseSession.resultUploads[0]?.file ?? null,
+    flowStatus:     req.approvalFlow.approvalStatus,
+    createdAt:      req.createdAt,
+  }));
+}
+
+
 
 }
 

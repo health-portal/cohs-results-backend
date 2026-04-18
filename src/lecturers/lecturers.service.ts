@@ -103,6 +103,13 @@ export class LecturersService {
         qualification: true,
         department: { select: { name: true } },
         user: { select: { email: true } },
+        designations: {
+          select: {
+            id:   true,
+            role: true,
+            part: true,
+          },
+        },
       },
     });
 

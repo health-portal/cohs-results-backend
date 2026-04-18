@@ -150,6 +150,7 @@ model Lecturer {
     designations    LecturerDesignation[]
     coursesLectured CourseLecturer[]
     resultUploads   ResultUpload[]
+    approvalFlow    ApprovalFlow[]
     
     createdTemplates      PipelineTemplate[]         @relation("TemplateCreator")
     activatedTemplates    PipelineTemplate[]         @relation("TemplateActivator")
@@ -468,24 +469,30 @@ model Result {
 }
 model ResultUpload {
     id        String   @id @default(uuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+
+    filename    String
+    description String?
+    url         String       // + Cloudinary secure_url
+    publicId    String       // + Cloudinary public_id (needed for deletion)
+    mimetype    String
+    isProcessed Boolean      @default(false)
+    category    FileCategory
+    metadata    Json?
+    updatedAt   DateTime @updatedAt
+    createdAt   DateTime  @default(now())
+    deletedAt   DateTime?
 
     courseSessionId       String
     courseSesnDeptLevelId String
-    uploadedById          String   // lecturerId of the uploader
-    fileId                String   @unique // the uploaded result file
-
+    uploadedById          String   
     courseSession       CourseSession          @relation(fields: [courseSessionId], references: [id])
     courseSesnDeptLevel CourseSesnDeptAndLevel @relation(fields: [courseSesnDeptLevelId], references: [id])
     uploadedBy          Lecturer               @relation(fields: [uploadedById], references: [id])
-    file                File                   @relation(fields: [fileId], references: [id])
-
+   
     @@unique([courseSessionId, courseSesnDeptLevelId], name: "uniqueResultUpload")
     @@index([uploadedById])
     @@map("result_uploads")
 }
-
 model File {
     id        String    @id @default(uuid())
     createdAt DateTime  @default(now())
@@ -500,7 +507,7 @@ model File {
     metadata    Json?
 
 
-    resultUpload  ResultUpload?
+    // resultUpload  ResultUpload?
 
     userId String
     user   User   @relation(fields: [userId], references: [id])
@@ -587,6 +594,7 @@ model ApprovalFlow {
     courseSessionId      String
     offeringDepartmentId String
     takingDepartmentId   String
+    lecturerId           String
     courseType           CourseType
     level                Level      
     approvalStatus       ApprovalStatus @default(REQUESTED)
@@ -594,6 +602,7 @@ model ApprovalFlow {
     createdAt            DateTime       @default(now())
     updatedAt            DateTime       @updatedAt
 
+    lecturer           Lecturer    @relation(fields: [lecturerId], references: [id])
     courseSession      CourseSession    @relation("approval_flow", fields: [courseSessionId], references: [id])
     offeringDepartment Department       @relation("OfferingDept", fields: [offeringDepartmentId], references: [id])
     takingDepartment   Department       @relation("TakingDept", fields: [takingDepartmentId], references: [id])

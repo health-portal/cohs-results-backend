@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { RegisterStudentBody, EditResultBody } from './lecturers.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileCategory, ResultType } from '@prisma/client';
@@ -9,12 +9,16 @@ import {
   LecturerCourseSessionRes,
   LecturerProfileRes,
 } from './lecturers.responses';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { ApprovalManager } from 'src/approvals/approval.manager';
 
 @Injectable()
 export class LecturerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messageQueueService: MessageQueueService,
+  private readonly approvalManager: ApprovalManager,
+  private readonly cloudinary: CloudinaryService,
   ) {}
 
   private async validateCourseLecturerAccess(
@@ -35,36 +39,94 @@ export class LecturerService {
       );
   }
 
-  async listCourseSessions(
-    lecturerId: string,
-  ): Promise<LecturerCourseSessionRes[]> {
-    const courseSessions = await this.prisma.courseSession.findMany({
-      where: { lecturers: { some: { id: lecturerId } } },
-      select: {
-        id: true,
-        course: { select: { code: true } },
-        gradingSystem: { select: { id: true, name: true } },
-        session: { select: { academicYear: true } },
-        deptsAndLevels: {
-          select: { level: true, department: { select: { name: true } } },
-        },
-        _count: { select: { enrollments: true, lecturers: true } },
-      },
-    });
+  // async listCourseSessions(
+  //   lecturerId: string,
+  // ): Promise<LecturerCourseSessionRes[]> {
+  //   const courseSessions = await this.prisma.courseSession.findMany({
+  //     where: { lecturers: { some: { id: lecturerId } } },
+  //     select: {
+  //       id: true,
+  //       course: { select: { code: true } },
+  //       gradingSystem: { select: { id: true, name: true } },
+  //       session: { select: { academicYear: true } },
+  //       deptsAndLevels: {
+  //         select: { level: true, department: { select: { name: true } } },
+  //       },
+  //       _count: { select: { enrollments: true, lecturers: true } },
+  //     },
+  //   });
 
-    return courseSessions.map((courseSession) => ({
-      id: courseSession.id,
-      courseCode: courseSession.course.code,
-      gradingSystem: courseSession.gradingSystem.name,
-      session: courseSession.session.academicYear,
-      deptsAndLevels: courseSession.deptsAndLevels.map((deptAndLevel) => ({
-        level: deptAndLevel.level,
-        department: deptAndLevel.department.name,
-      })),
-      enrollmentCount: courseSession._count.enrollments,
-      lecturerCount: courseSession._count.lecturers,
-    }));
-  }
+  //   return courseSessions.map((courseSession) => ({
+  //     id: courseSession.id,
+  //     courseCode: courseSession.course.code,
+  //     gradingSystem: courseSession.gradingSystem.name,
+  //     session: courseSession.session.academicYear,
+  //     deptsAndLevels: courseSession.deptsAndLevels.map((deptAndLevel) => ({
+  //       level: deptAndLevel.level,
+  //       department: deptAndLevel.department.name,
+  //     })),
+  //     enrollmentCount: courseSession._count.enrollments,
+  //     lecturerCount: courseSession._count.lecturers,
+  //   }));
+  // }
+
+
+async getLecturerCourseSessions(lecturerId: string) {
+  const courseSessions = await this.prisma.courseSession.findMany({
+    where: {
+      lecturers: { some: { lecturerId } },
+    },
+    include: {
+      course: {
+        select: { code: true, title: true },
+      },
+      session: {
+        select: { id: true, academicYear:true },  // whatever your Session model exposes
+      },
+      deptsAndLevels: {
+        include: {
+          department: { select: { id: true, name: true } },
+          // check if a result has already been uploaded for this dept+level
+          resultUploads: {
+            select: {
+              id:          true,
+              uploadedById: true,
+              createdAt:   true,
+              url: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  return courseSessions.map((session) => ({
+    courseSessionId: session.id,
+    courseCode:      session.course.code,
+    courseTitle:     session.course.title,
+    session:         session.session.academicYear,
+    isApproved:      session.isApproved,
+    isPublished:     session.isPublished,
+    deptLevels:      session.deptsAndLevels.map((dl) => ({
+      courseSesnDeptLevelId: dl.id,
+      department:            dl.department.name,
+      departmentId:          dl.department.id,
+      level:                 dl.level,
+      uploadStatus: dl.resultUploads[0]
+        ? {
+            uploaded:    true,
+            uploadedAt:  dl.resultUploads[0].createdAt,
+            uploadedByMe: dl.resultUploads[0].uploadedById === lecturerId,
+            file:        dl.resultUploads[0].url,
+          }
+        : {
+            uploaded: false,
+          },
+    })),
+  }));
+}
 
   async registerStudent(
     lecturerId: string,
@@ -110,24 +172,85 @@ export class LecturerService {
   async uploadFileForStudentResults(
     userId: string,
     lecturerId: string,
-    courseSessionId: string,
+    courseSesnDeptLevelId: string,
     file: Express.Multer.File,
   ) {
     await this.validateCourseLecturerAccess(lecturerId, userId, true);
-    const createdFile = await this.prisma.file.create({
-      data: {
-        filename: file.originalname,
-        buffer: Buffer.from(file.buffer),
-        userId,
-        category: FileCategory.RESULTS,
-        mimetype: file.mimetype,
-        metadata: { courseSessionId },
+
+    const deptLevel = await this.prisma.courseSesnDeptAndLevel.findUnique({
+      where: { id: courseSesnDeptLevelId },
+      include: {
+        courseSession: {
+          include: { lecturers: true },
+        },
       },
     });
 
-    await this.messageQueueService.enqueueFile({
-      fileId: createdFile.id,
+    if (!deptLevel) {
+      throw new NotFoundException(
+        `Course Session, Department, And Level ${courseSesnDeptLevelId} not found`,
+      );
+    }
+
+    const existing = await this.prisma.resultUpload.findUnique({
+    where: {
+      uniqueResultUpload: {
+        courseSessionId:       deptLevel.courseSessionId,
+        courseSesnDeptLevelId: courseSesnDeptLevelId,
+      },
+    },
+  });
+
+
+  // Upload new file to Cloudinary before the transaction
+  const { url, publicId } = await this.cloudinary.uploadFile(
+    file.buffer,
+    file.originalname,
+    'results',
+  );
+
+  try {
+    await this.prisma.$transaction(async (tx) => {
+
+      if (existing) {
+        // Update existing upload with new file
+        await tx.resultUpload.update({
+          where: { id: existing.id },
+          data: {
+            publicId:       publicId,
+            url: url,
+          },
+        });
+      } else {
+        await tx.resultUpload.create({
+          data: {
+            courseSessionId:       deptLevel.courseSessionId,
+            courseSesnDeptLevelId: courseSesnDeptLevelId,
+            uploadedById:          lecturerId,
+            filename:  file.originalname,
+            url,
+            publicId,
+            mimetype:  file.mimetype,
+            category:  FileCategory.RESULTS,
+          },
+        });
+      }
     });
+     // Delete old Cloudinary file after successful transaction
+    if (existing?.publicId) {
+      await this.cloudinary.deleteFile(existing.publicId);
+    }
+  } catch (error) {
+    // Transaction failed — clean up the newly uploaded Cloudinary file
+    await this.cloudinary.deleteFile(publicId);
+    throw error;
+  }
+
+  // Trigger approval pipeline
+  await this.approvalManager.buildApprovalPipeline(deptLevel.courseSessionId, lecturerId);
+    // await this.messageQueueService.enqueueFile({
+    //   fileId: createdFile.id,
+    // });
   }
 
   async editResult(
@@ -233,6 +356,13 @@ export class LecturerService {
         gender: true,
         department: { select: { name: true } },
         user: { select: { email: true } },
+        designations: {
+          select: {
+            id:   true,
+            role: true,
+            part: true,
+          },
+        },
       },
     });
 
@@ -241,6 +371,9 @@ export class LecturerService {
       department: lecturer.department.name,
       email: lecturer.user.email,
     };
+  }
+  getPendingRequests(lecturerId) {
+    
   }
   
 }

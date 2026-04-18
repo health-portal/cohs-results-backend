@@ -29,6 +29,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -43,8 +44,8 @@ import { ApprovalsService } from 'src/approvals/approvals.service';
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('lecturer')
-@AuthRoles([UserRole.LECTURER])
-@UseGuards(JwtAuthGuard, UserRoleGuard)
+// @AuthRoles([UserRole.LECTURER])
+// @UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
   constructor(private readonly lecturerService: LecturerService,
     private readonly approvalService: ApprovalsService,
@@ -60,7 +61,7 @@ export class LecturerController {
   @Get('courses-sessions')
   async listCourseSessions(@User() user: UserPayload) {
     const lecturerId = this.getLecturerId(user);
-    return this.lecturerService.listCourseSessions(lecturerId);
+    return this.lecturerService.getLecturerCourseSessions(lecturerId);
   }
 
   @ApiOperation({ summary: 'Register a student in a course session' })
@@ -130,34 +131,23 @@ export class LecturerController {
     );
   }
 
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload a file for student results' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @Post('courses-sessions/:courseSessionId/results')
-  async uploadFileForStudentResults(
-    @User() user: UserPayload,
-    @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const lecturerId = this.getLecturerId(user);
-    return await this.lecturerService.uploadFileForStudentResults(
-      user.sub,
-      lecturerId,
-      courseSessionId,
-      file,
-    );
-  }
+  // @UseInterceptors(FileInterceptor('file'))
+  // @ApiConsumes('multipart/form-data')
+  // @ApiOperation({ summary: 'Upload a file for student results' })
+  // @ApiBody({
+  //   schema: {
+  //     type: 'object',
+  //     properties: {
+  //       file: {
+  //         type: 'string',
+  //         format: 'binary',
+  //       },
+  //     },
+  //   },
+  // })
+  // @Post('courses-sessions/:courseSessionId/results')
+  
+
 
   @ApiOperation({ summary: "Edit a student's score in a course session" })
   @ApiBody({ type: EditResultBody })
@@ -194,20 +184,20 @@ export class LecturerController {
     );
   }
 
-  @ApiOperation({ summary: 'View results for a course session' })
-  @ApiOkResponse({ type: [EnrollmentWithResultRes] })
-  @ApiNotFoundResponse({ description: 'Course session not found' })
-  @Get('courses-sessions/:courseSessionId/results')
-  async listCourseResults(
-    @User() user: UserPayload,
-    @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-  ) {
-    const lecturerId = this.getLecturerId(user);
-    return await this.lecturerService.listCourseResults(
-      lecturerId,
-      courseSessionId,
-    );
-  }
+  // @ApiOperation({ summary: 'View results for a course session' })
+  // @ApiOkResponse({ type: [EnrollmentWithResultRes] })
+  // @ApiNotFoundResponse({ description: 'Course session not found' })
+  // @Get('courses-sessions/:courseSessionId/results')
+  // async listCourseResults(
+  //   @User() user: UserPayload,
+  //   @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
+  // ) {
+  //   const lecturerId = this.getLecturerId(user);
+  //   return await this.lecturerService.listCourseResults(
+  //     lecturerId,
+  //     courseSessionId,
+  //   );
+  // }
 
   @ApiOperation({ summary: 'Get lecturer profile' })
   @ApiOkResponse({ type: LecturerProfileRes })
@@ -235,18 +225,33 @@ export class LecturerController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  async uploadDepartmentResult(
+ 
+  async uploadFileForStudentResults(
     @User() user: UserPayload,
-    @Param('courseSesnDeptLevelId') courseSesnDeptLevelId: string,
+    @Param('courseSessionDepartmentLevelId', ParseUUIDPipe) courseSesnDeptLevelId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const { lecturerId } = user.userData as LecturerData;
-    return this.approvalService.uploadDepartmentResult(
+    const lecturerId = this.getLecturerId(user);
+    return await this.lecturerService.uploadFileForStudentResults(
+      user.sub,
       lecturerId,
       courseSesnDeptLevelId,
       file,
     );
   }
+
+
+  @Get('requests/pending')
+@ApiOperation({
+  summary: 'Get pending approval requests',
+  description:
+    'Returns all approval requests currently awaiting action ' +
+    'for the authenticated lecturer.',
+})
+@ApiResponse({ status: 200, description: 'Pending requests returned' })
+async getPendingApprovals(@User() user: UserPayload) {
+  const { lecturerId } = user.userData as LecturerData;
+}
 
 
 }

@@ -26,6 +26,7 @@ import {
 } from './approval.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { UserRoleGuard } from 'src/auth/role.guard';
+import { ApprovalsService } from './approvals.service';
 
 @ApiTags('Approval')
 @Controller('approval')
@@ -40,18 +41,18 @@ export class ApprovalController {
   // PIPELINE
   // ============================================================
 
-  @Post('pipeline/:courseSessionId/build')
-  @ApiOperation({
-    summary: 'Build approval pipeline',
-    description:
-      'Triggered when a course lecturer uploads a result. Creates one flow per ' +
-      '(dept + level) from CourseSesnDeptAndLevel. Template resolved at offering faculty level.',
-  })
-  @ApiParam({ name: 'courseSessionId', description: 'Course session ID' })
-  @ApiResponse({ status: 201, description: 'Pipeline built successfully' })
-  buildPipeline(@Param('courseSessionId') courseSessionId: string) {
-    return this.approvalManager.buildApprovalPipeline(courseSessionId);
-  }
+  // @Post('pipeline/:courseSessionId/build')
+  // @ApiOperation({
+  //   summary: 'Build approval pipeline',
+  //   description:
+  //     'Triggered when a course lecturer uploads a result. Creates one flow per ' +
+  //     '(dept + level) from CourseSesnDeptAndLevel. Template resolved at offering faculty level.',
+  // })
+  // @ApiParam({ name: 'courseSessionId', description: 'Course session ID' })
+  // @ApiResponse({ status: 201, description: 'Pipeline built successfully' })
+  // buildPipeline(@Param('courseSessionId') courseSessionId: string,) {
+  //   return this.approvalManager.buildApprovalPipeline(courseSessionId);
+  // }
 
   @Get('pipeline/:courseSessionId/status')
   @ApiOperation({
@@ -114,6 +115,31 @@ export class ApprovalController {
   ) {
     return this.approvalManager.respondToApprovalRequest(requestId, response);
   }
+
+  @Get('requests/pending/department/:departmentId')
+  @ApiOperation({
+    summary: 'Get pending approvals by department',
+    description: 'Returns all pending approval requests for a given department.',
+  })
+  @ApiParam({ name: 'departmentId', description: 'Department ID' })
+  async getPendingApprovalsByDepartment(
+    @Param('departmentId') departmentId: string,
+  ) {
+    return this.approvalManager.pendingDepartmentApproval(departmentId);
+  }
+
+@Get('requests/pending/epartment/:facultyId')
+@ApiOperation({
+  summary: 'Get pending approvals by faculty',
+  description: 'Returns all pending approval requests across all departments in a faculty.',
+})
+@ApiParam({ name: 'facultyId', description: 'Faculty ID' })
+async getPendingApprovalsByFaculty(
+  @Param('facultyId') facultyId: string,
+) {
+  return this.approvalManager.pendingFacultyApproval(facultyId);
+}
+  
 
   // ============================================================
   // TEMPLATES
