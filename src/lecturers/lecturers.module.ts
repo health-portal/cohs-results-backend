@@ -6,9 +6,10 @@ import { LecturerController } from './lecturer.controller';
 import { MessageQueueModule } from 'src/message-queue/message-queue.module';
 import { ApprovalsService } from 'src/approvals/approvals.service';
 import { ApprovalModule } from 'src/approvals/approvals.module';
+import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
-  imports: [MessageQueueModule, ApprovalModule],
+  imports: [MessageQueueModule, ApprovalModule, CloudinaryModule, ApprovalModule, MessageQueueModule],
   controllers: [LecturersController, LecturerController],
   providers: [LecturersService, LecturerService, ApprovalsService],
 })
