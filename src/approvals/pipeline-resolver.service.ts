@@ -210,22 +210,45 @@ export class PipelineResolverService {
   // ============================================================
   // GUARDS
   // ============================================================
+async assertLecturerOwnsDesignation(
+  lecturerDesignationId: string,
+  lecturerId: string,
+): Promise<void> {
+  const designation = await this.prisma.lecturerDesignation.findFirst({
+    where: { 
+      id: lecturerDesignationId, 
+      lecturerId: lecturerId 
+    },
+  });
 
-  async assertLecturerOwnsDesignation(
-    lecturerDesignationId: string,
-    lecturerId: string,
-  ): Promise<void> {
-    const designation = await this.prisma.lecturerDesignation.findFirst({
-      where: { id: lecturerDesignationId, lecturerId },
+  if (!designation) {
+    const requiredDesignation = await this.prisma.lecturerDesignation.findUnique({
+        where: { id: lecturerDesignationId }
     });
+    if(!requiredDesignation) {
+      throw new NotFoundException(
+          `This does not exist in the database.`
+        );
+    }
+    else{
 
-    if (!designation) {
-      throw new BadRequestException(
-        `Lecturer ${lecturerId} does not own designation ${lecturerDesignationId}`,
-      );
+      const hasEquivalentRole = await this.prisma.lecturerDesignation.findFirst({
+          where: {
+              lecturerId: lecturerId,
+              role: requiredDesignation.role,
+              entity: requiredDesignation.entity
+          }
+        
+      });
+
+      if (!hasEquivalentRole) {
+        throw new BadRequestException(
+          `Access Denied: You do not hold the required position for this step.`
+        );
+      }
     }
   }
-
+}
   /**
    * Assert a lecturer holds a DEAN designation.
    * Optionally verifies they belong to a specific faculty.
