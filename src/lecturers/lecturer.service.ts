@@ -15,7 +15,7 @@ import { ApprovalManager } from 'src/approvals/approval.manager';
 @Injectable()
 export class LecturerService {
   constructor(
-    @Inject(forwardRef(() => ApprovalManager))
+    // @Inject(forwardRef(() => ApprovalManager))
     private readonly prisma: PrismaService,
     private readonly messageQueueService: MessageQueueService,
   private readonly approvalManager: ApprovalManager,
