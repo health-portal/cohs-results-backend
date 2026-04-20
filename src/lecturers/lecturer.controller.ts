@@ -234,7 +234,7 @@ export class LecturerController {
     // @Body() body: UploadResultDto, 
   ) {
     const lecturerId = this.getLecturerId(user);
-    // const lecturerId = "856765fe-6748-4f10-864e-d91c73064fda";
+    // const lecturerId = "a49a1cee-6042-4c2d-b048-0520133292c3";
     // const usersub = "dd12d805-6dc4-476d-ac66-44f995e1b260"
     return await this.lecturerService.uploadFileForStudentResults(
       lecturerId,

@@ -106,59 +106,108 @@ export class ApprovalManager {
       level,
     );
 
+    // return this.prisma.$transaction(async (tx) => {
+    //   const flow = await tx.approvalFlow.upsert({
+    //     where: {
+    //       uniqueApprovalFlow: {
+    //         courseSessionId: context.id,
+    //         takingDepartmentId: takingDeptId,
+    //         level,
+    //       },
+    //     },
+    //     update: {},
+    //     create: {
+    //       courseSession:      { connect: { id: context.id } },
+    //       offeringDepartment: { connect: { id: context.offeringDeptId } },
+    //       takingDepartment:   { connect: { id: takingDeptId } },
+    //       lecturer: { connect: { id: lecturerId } },
+    //       level,
+    //       courseType:       context.courseType,
+    //       approvalStatus:   ApprovalStatus.REQUESTED,
+    //       pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
+    //     },
+    //   });
+
+    //   for (const step of resolvedSteps) {
+    //     await tx.approvalRequest.upsert({
+    //       where: {
+    //         approvalFlowId_lecturerDesignationId_priority: {
+    //           approvalFlowId: flow.id,
+    //           lecturerDesignationId: step.lecturerDesignationId,
+    //           priority: step.priority,
+    //         },
+    //       },
+    //       update: {},
+    //       create: {
+    //         approvalFlowId:        flow.id,
+    //         lecturerDesignationId: step.lecturerDesignationId,
+    //         priority:              step.priority,
+    //         status:                ApprovalStatus.REQUESTED,
+    //       },
+    //     });
+
+    //     this.logger.log(
+    //       `ApprovalRequest → ${step.role} (${step.lecturerName}) ` +
+    //         `for "${takingDeptName}" [${level}] at priority ${step.priority}`,
+    //     );
+    //   }
+
+    //   return {
+    //     flowId:              flow.id,
+    //     takingDepartmentId:  takingDeptId,
+    //     takingDepartmentName: takingDeptName,
+    //     level,
+    //     stepsCreated:        resolvedSteps.length,
+    //   };
+    // });
+
+    // Inside createFlowForDeptLevel
     return this.prisma.$transaction(async (tx) => {
       const flow = await tx.approvalFlow.upsert({
-        where: {
-          uniqueApprovalFlow: {
-            courseSessionId: context.id,
-            takingDepartmentId: takingDeptId,
-            level,
-          },
-        },
-        update: {},
-        create: {
-          courseSession:      { connect: { id: context.id } },
-          offeringDepartment: { connect: { id: context.offeringDeptId } },
-          takingDepartment:   { connect: { id: takingDeptId } },
-          lecturer: { connect: { id: lecturerId } },
-          level,
-          courseType:       context.courseType,
-          approvalStatus:   ApprovalStatus.REQUESTED,
-          pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
-        },
+            where: {
+              uniqueApprovalFlow: {
+                courseSessionId: context.id,
+                takingDepartmentId: takingDeptId,
+                level,
+              },
+            },
+            update: {},
+            create: {
+              courseSession:      { connect: { id: context.id } },
+              offeringDepartment: { connect: { id: context.offeringDeptId } },
+              takingDepartment:   { connect: { id: takingDeptId } },
+              lecturer: { connect: { id: lecturerId } },
+              level,
+              courseType:       context.courseType,
+              approvalStatus:   ApprovalStatus.REQUESTED,
+              pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
+            },
+          });
+
+
+      // 1. Prepare all the data first
+      const requestsData = resolvedSteps.map(step => ({
+        approvalFlowId: flow.id,
+        lecturerDesignationId: step.lecturerDesignationId,
+        priority: step.priority,
+        status: ApprovalStatus.REQUESTED,
+      }));
+
+      // 2. Fire one single command to the DB instead of a loop
+      await tx.approvalRequest.createMany({
+        data: requestsData,
+        skipDuplicates: true, 
       });
 
-      for (const step of resolvedSteps) {
-        await tx.approvalRequest.upsert({
-          where: {
-            approvalFlowId_lecturerDesignationId_priority: {
-              approvalFlowId: flow.id,
-              lecturerDesignationId: step.lecturerDesignationId,
-              priority: step.priority,
-            },
-          },
-          update: {},
-          create: {
-            approvalFlowId:        flow.id,
-            lecturerDesignationId: step.lecturerDesignationId,
-            priority:              step.priority,
-            status:                ApprovalStatus.REQUESTED,
-          },
-        });
-
-        this.logger.log(
-          `ApprovalRequest → ${step.role} (${step.lecturerName}) ` +
-            `for "${takingDeptName}" [${level}] at priority ${step.priority}`,
-        );
-      }
-
-      return {
-        flowId:              flow.id,
-        takingDepartmentId:  takingDeptId,
-        takingDepartmentName: takingDeptName,
-        level,
-        stepsCreated:        resolvedSteps.length,
-      };
+          return {
+            flowId:              flow.id,
+            takingDepartmentId:  takingDeptId,
+            takingDepartmentName: takingDeptName,
+            level,
+            stepsCreated:        resolvedSteps.length,
+          };
+    }, {
+      timeout: 15000 // Give it a bit more breathing room
     });
   }
 

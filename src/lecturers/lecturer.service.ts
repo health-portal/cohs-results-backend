@@ -235,7 +235,9 @@ async getLecturerCourseSessions(lecturerId: string) {
           },
         });
       }
-    });
+    }, {
+    timeout: 20000, // 20 seconds
+  });
      // Delete old Cloudinary file after successful transaction
     if (existing?.publicId) {
       await this.cloudinary.deleteFile(existing.publicId);
@@ -247,11 +249,19 @@ async getLecturerCourseSessions(lecturerId: string) {
   }
 
   // Trigger approval pipeline
-  await this.approvalManager.buildApprovalPipeline(deptLevel.courseSessionId, lecturerId);
+  const pipeline = await this.approvalManager.buildApprovalPipeline(deptLevel.courseSessionId, lecturerId);
     // await this.messageQueueService.enqueueFile({
     //   fileId: createdFile.id,
     // });
-  }
+    return {
+    message: 'File uploaded and approval pipeline initiated successfully',
+    data: {
+      fileName: file.originalname,
+      flowsCreated: pipeline.flows.length,
+      courseType: pipeline.courseType
+    }
+  };
+}
 
   async editResult(
     lecturerId: string,

@@ -82,45 +82,42 @@ export class AdminService {
       where: { id: adminId },
     });
   }
-
-  async updateLecturerDesignation(
-    lecturerId: string,
-    body: UpdateLecturerDesignationDto,
-  ): Promise<void> {
-    if (body.role === LecturerRole.PART_ADVISER && !body.part) {
-      throw new BadRequestException(
-        'part (Level) is required when assigning the PART_ADVISER role',
-      );
-    }
-  
-    const lecturer = await this.prisma.lecturer.findUnique({
-      where: { id: lecturerId },
-      select: { id: true, departmentId: true },
-    });
-  
-    if (!lecturer) {
-      throw new NotFoundException(`Lecturer ${lecturerId} not found`);
-    }
-  
-    await this.prisma.lecturerDesignation.upsert({
-      where: {
-        designation: {
-          entity:     lecturer.departmentId,
-          role:       body.role,
-          lecturerId: lecturer.id,
-          ...(body.part ? { part: body.part } : {}),
-        } as any,
-      },
-      update: {},
-      create: {
-        entity:     lecturer.departmentId,
-        role:       body.role,
-        lecturerId: lecturer.id,
-        ...(body.part ? { part: body.part } : {}),
-      },
-    });
+async updateLecturerDesignation(
+  lecturerId: string,
+  body: UpdateLecturerDesignationDto,
+): Promise<void> {
+  // 1. Validation
+  if (body.role === LecturerRole.PART_ADVISER && !body.part) {
+    throw new BadRequestException('part (Level) is required for PART_ADVISER');
   }
 
+  // 2. Data Fetching
+  const lecturer = await this.prisma.lecturer.findUnique({
+    where: { id: lecturerId },
+    select: { id: true, departmentId: true },
+  });
+
+  if (!lecturer) {
+    throw new NotFoundException(`Lecturer ${lecturerId} not found`);
+  }
+
+  // 3. Structured Data for Upsert
+  const designationConstraint = {
+    entity: lecturer.departmentId,
+    role: body.role,
+    lecturerId: lecturer.id,
+    part: body.part ?? null, // Ensure 'null' is passed if no part exists
+  };
+
+  await this.prisma.lecturerDesignation.upsert({
+    where: {
+      designation: designationConstraint,
+    },
+    update: {
+    },
+    create: designationConstraint,
+  });
+}
   async activateFixtureLecturers({ emails, password }: ActivateFixtureLecturersBody) {
     const uniqueEmails = [...new Set(emails.map((email) => email.trim().toLowerCase()))];
 
