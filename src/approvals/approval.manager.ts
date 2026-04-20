@@ -213,8 +213,8 @@ export class ApprovalManager {
 
 
   async respondToApprovalRequest(
-    approvalRequestId: string,
     lecturerId: string,
+    approvalRequestId: string,
     response: RespondToApprovalRequestDto,
   ) {
     const approvalRequest = await this.prisma.approvalRequest.findUnique({
