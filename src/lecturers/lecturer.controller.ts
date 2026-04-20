@@ -45,8 +45,8 @@ import { ApprovalsService } from 'src/approvals/approvals.service';
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('lecturer')
-// @AuthRoles([UserRole.LECTURER])
-// @UseGuards(JwtAuthGuard, UserRoleGuard)
+@AuthRoles([UserRole.LECTURER])
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
   constructor(private readonly lecturerService: LecturerService,
     private readonly approvalService: ApprovalsService,
