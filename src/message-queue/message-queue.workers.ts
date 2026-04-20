@@ -3,6 +3,7 @@ import { PgBoss } from 'pg-boss';
 import { createClient } from 'smtpexpress';
 import {
   ParseFilePayload,
+  ProcessResultsPayload,
   QueueTable,
   SendEmailPayload,
 } from './message-queue.dto';
@@ -13,10 +14,13 @@ import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PgBossProvider } from './pg-boss.provider';
 import env from 'src/environment';
+import { ResultsProcessorModule } from 'src/results/resultProcessor.module';
+import { ResultProcessorService } from 'src/results/resultProcessor.service';
 
 @Module({
   imports: [
     FilesModule,
+    ResultsProcessorModule,
     JwtModule.register({ secret: env.JWT_SECRET, global: true }),
     PrismaModule,
     TokensModule,
@@ -30,6 +34,7 @@ export class MessageQueueWorkersModule
 
   constructor(
     private readonly filesService: FilesService,
+    private readonly resultProcessorService: ResultProcessorService,
     @Inject('PG_BOSS') private readonly boss: PgBoss,
   ) {
     this.emailClient = createClient({
@@ -41,6 +46,7 @@ export class MessageQueueWorkersModule
   async onModuleInit() {
     await this.processEmail();
     await this.processFile();
+    await this.processResults(); 
   }
 
   async onModuleDestroy() {
@@ -66,6 +72,12 @@ export class MessageQueueWorkersModule
     await this.boss.work(QueueTable.FILES, async ([job]) => {
       const payload = job.data as ParseFilePayload;
       await this.filesService.parseFile(payload);
+    });
+  }
+  private async processResults() {
+    await this.boss.work(QueueTable.PROCESS_RESULTS, async ([job]) => {
+      const payload = job.data as ProcessResultsPayload;
+      await this.resultProcessorService.processResultUpload(payload);
     });
   }
 }

@@ -16,6 +16,7 @@ import { TokensModule } from './tokens/tokens.module';
 import { ApprovalModule } from './approvals/approvals.module';
 import env from './environment';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { ResultsProcessorModule } from './results/resultProcessor.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     TokensModule,
     ApprovalModule,
     CloudinaryModule,
+    ResultsProcessorModule,
   ],
 })
 export class AppModule {}

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Gender } from '@prisma/client';
+import { Gender, ResultType } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -121,4 +121,14 @@ export class RegisterStudentBody {
   @IsString()
   @IsNotEmpty()
   matricNumber: string;
+}
+
+export class UploadResultDto {
+  @ApiProperty({
+    enum: ResultType,
+    example: ResultType.INITIAL,
+    description: 'Whether this is an initial result or resit',
+  })
+  @IsEnum(ResultType)
+  resultType: ResultType;
 }

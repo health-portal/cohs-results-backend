@@ -7,6 +7,7 @@ import {
   NotificationSchema,
   notificationTemplate,
   type ParseFilePayload,
+  ProcessResultsPayload,
   QueueTable,
   type SendEmailPayload,
   SetPasswordSchema,
@@ -62,4 +63,8 @@ export class MessageQueueService {
   async enqueueFile(payload: ParseFilePayload) {
     return await this.boss.send(QueueTable.FILES, payload);
   }
+  
+  async enqueueProcessResults(payload: ProcessResultsPayload): Promise<void> {
+  await this.boss.send(QueueTable.PROCESS_RESULTS, payload);
+}
 }

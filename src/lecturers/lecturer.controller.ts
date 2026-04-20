@@ -19,7 +19,7 @@ import { AuthRoles, UserRoleGuard } from 'src/auth/role.guard';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { LecturerData, type UserPayload } from 'src/auth/auth.dto';
-import { EditResultBody, RegisterStudentBody } from './lecturers.dto';
+import { EditResultBody, RegisterStudentBody, UploadResultDto } from './lecturers.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -29,6 +29,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -44,8 +45,8 @@ import { ApprovalsService } from 'src/approvals/approvals.service';
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('lecturer')
-@AuthRoles([UserRole.LECTURER])
-@UseGuards(JwtAuthGuard, UserRoleGuard)
+// @AuthRoles([UserRole.LECTURER])
+// @UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
   constructor(private readonly lecturerService: LecturerService,
     private readonly approvalService: ApprovalsService,
@@ -228,30 +229,57 @@ export class LecturerController {
  
   async uploadFileForStudentResults(
     @User() user: UserPayload,
-    @Param('courseSessionDepartmentLevelId', ParseUUIDPipe) courseSesnDeptLevelId: string,
+    @Param('courseSessionDepartmentLevelId') courseSesnDeptLevelId: string,
     @UploadedFile() file: Express.Multer.File,
+    // @Body() body: UploadResultDto, 
   ) {
     const lecturerId = this.getLecturerId(user);
+    // const lecturerId = "856765fe-6748-4f10-864e-d91c73064fda";
+    // const userub = "dd12d805-6dc4-476d-ac66-44f995e1b260"
     return await this.lecturerService.uploadFileForStudentResults(
       user.sub,
       lecturerId,
       courseSesnDeptLevelId,
       file,
+      // body.resultType,
     );
   }
 
 
   @Get('requests/pending')
-@ApiOperation({
-  summary: 'Get pending approval requests',
-  description:
-    'Returns all approval requests currently awaiting action ' +
-    'for the authenticated lecturer.',
-})
-@ApiResponse({ status: 200, description: 'Pending requests returned' })
-async getPendingApprovals(@User() user: UserPayload) {
-  const { lecturerId } = user.userData as LecturerData;
-}
+  @ApiOperation({
+    summary: 'Get pending approval requests',
+    description:
+      'Returns all approval requests currently awaiting action ' +
+      'for the authenticated lecturer.',
+  })
+  @ApiResponse({ status: 200, description: 'Pending requests returned' })
+  async getPendingApprovals(@User() user: UserPayload) {
+    const lecturerId = this.getLecturerId(user);
+    return await this.lecturerService.getPendingApprovals(lecturerId);
+  }
 
+  @Patch('dept-level/:courseSesnDeptLevelId/publish')
+  @ApiOperation({
+    summary: 'Publish results for a department/level',
+    description:
+      'Lecturer publishes results for a specific dept+level combination. ' +
+      'The approval flow must be fully approved and results must be processed ' +
+      'before publishing. Students can only see results after this is called.',
+  })
+  @ApiParam({ name: 'courseSesnDeptLevelId', description: 'CourseSesnDeptAndLevel ID' })
+  @ApiResponse({ status: 200, description: 'Results published successfully' })
+  @ApiResponse({ status: 400, description: 'Approval not complete or results not processed' })
+  @ApiResponse({ status: 403, description: 'Lecturer not assigned to this course session' })
+  async publishResults(
+    @User() user: UserPayload,
+    @Param('courseSesnDeptLevelId') courseSesnDeptLevelId: string,
+  ) {
+    const { lecturerId } = user.userData as LecturerData;
+    return this.lecturerService.publishResults(
+      courseSesnDeptLevelId,
+      lecturerId,
+    );
+}
 
 }

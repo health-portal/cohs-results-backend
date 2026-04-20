@@ -1,9 +1,17 @@
 import env from 'src/environment';
 import { TokenPayload } from 'src/auth/auth.dto';
+import { ResultType } from '@prisma/client';
+
 
 export enum QueueTable {
-  EMAILS = 'emails',
-  FILES = 'files',
+  EMAILS          = 'emails',
+  FILES           = 'files',
+  PROCESS_RESULTS = 'process-results',
+}
+
+export interface ProcessResultsPayload {
+  resultUploadId:  string;
+  courseSessionId: string;
 }
 // Files
 export interface ParseFilePayload {
@@ -113,3 +121,4 @@ export const notificationTemplate = (title: string, message: string) => {
 </body>
 </html>`;
 };
+
