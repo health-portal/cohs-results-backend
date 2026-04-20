@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { LecturersService } from './lecturers.service';
 import { LecturerService } from './lecturer.service';
 import { LecturersController } from './lecturers.controller';
@@ -9,7 +9,7 @@ import { ApprovalModule } from 'src/approvals/approvals.module';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
-  imports: [MessageQueueModule, ApprovalModule, CloudinaryModule, ApprovalModule, MessageQueueModule],
+  imports: [forwardRef(() => ApprovalModule), MessageQueueModule, CloudinaryModule, ApprovalModule, MessageQueueModule],
   controllers: [LecturersController, LecturerController],
   providers: [LecturersService, LecturerService, ApprovalsService],
 })

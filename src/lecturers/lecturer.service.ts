@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { RegisterStudentBody, EditResultBody } from './lecturers.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ApprovalStatus, DeptResultStatus, FileCategory, ResultType } from '@prisma/client';
@@ -15,6 +15,7 @@ import { ApprovalManager } from 'src/approvals/approval.manager';
 @Injectable()
 export class LecturerService {
   constructor(
+    @Inject(forwardRef(() => ApprovalManager))
     private readonly prisma: PrismaService,
     private readonly messageQueueService: MessageQueueService,
   private readonly approvalManager: ApprovalManager,
