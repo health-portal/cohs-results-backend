@@ -170,14 +170,12 @@ async getLecturerCourseSessions(lecturerId: string) {
   }
 
   async uploadFileForStudentResults(
-    userId: string,
     lecturerId: string,
     courseSesnDeptLevelId: string,
     file: Express.Multer.File,
     // resultType: ResultType,
   ) {
-    await this.validateCourseLecturerAccess(lecturerId, userId, true);
-
+    // await this.validateCourseLecturerAccess(lecturerId, userId, true);
     const deptLevel = await this.prisma.courseSesnDeptAndLevel.findUnique({
       where: { id: courseSesnDeptLevelId },
       include: {

@@ -45,8 +45,8 @@ import { ApprovalsService } from 'src/approvals/approvals.service';
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
 @Controller('lecturer')
-@AuthRoles([UserRole.LECTURER])
-@UseGuards(JwtAuthGuard, UserRoleGuard)
+// @AuthRoles([UserRole.LECTURER])
+// @UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
   constructor(private readonly lecturerService: LecturerService,
     private readonly approvalService: ApprovalsService,
@@ -229,15 +229,14 @@ export class LecturerController {
  
   async uploadFileForStudentResults(
     @User() user: UserPayload,
-    @Param('courseSessionDepartmentLevelId') courseSesnDeptLevelId: string,
+    @Param('courseSesnDeptLevelId') courseSesnDeptLevelId: string,
     @UploadedFile() file: Express.Multer.File,
     // @Body() body: UploadResultDto, 
   ) {
     const lecturerId = this.getLecturerId(user);
     // const lecturerId = "856765fe-6748-4f10-864e-d91c73064fda";
-    // const userub = "dd12d805-6dc4-476d-ac66-44f995e1b260"
+    // const usersub = "dd12d805-6dc4-476d-ac66-44f995e1b260"
     return await this.lecturerService.uploadFileForStudentResults(
-      user.sub,
       lecturerId,
       courseSesnDeptLevelId,
       file,
