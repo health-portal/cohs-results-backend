@@ -41,6 +41,7 @@ import {
   LecturerProfileRes,
 } from './lecturers.responses';
 import { ApprovalsService } from 'src/approvals/approvals.service';
+import { RespondToApprovalRequestDto } from 'src/approvals/approval.dto';
 
 @ApiTags('lecturer', 'Lecturer')
 @ApiBearerAuth('accessToken')
@@ -48,6 +49,7 @@ import { ApprovalsService } from 'src/approvals/approvals.service';
 @AuthRoles([UserRole.LECTURER])
 @UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturerController {
+  approvalManager: any;
   constructor(private readonly lecturerService: LecturerService,
     private readonly approvalService: ApprovalsService,
   ) {}
@@ -280,5 +282,25 @@ export class LecturerController {
       lecturerId,
     );
 }
+
+  @Patch('request/respond')
+  @ApiOperation({
+    summary: 'Respond to approval request',
+    description:
+      'Lecturer approves or rejects their assigned step. ' +
+      'All lower-priority steps must be APPROVED before this can be submitted.',
+  })
+  @ApiParam({ name: 'requestId', description: 'Approval request ID' })
+  @ApiBody({ type: RespondToApprovalRequestDto })
+  @ApiResponse({ status: 200, description: 'Response recorded successfully' })
+  @ApiResponse({ status: 400, description: 'Lower-priority step not yet resolved' })
+  @ApiResponse({ status: 404, description: 'Approval request not found' })
+  respond(
+    @User() user: UserPayload,
+    @Body() response: RespondToApprovalRequestDto,
+  ) {
+    const { lecturerId } = user.userData as LecturerData;
+    return this.approvalManager.respondToApprovalRequest(lecturerId, response);
+  }
 
 }

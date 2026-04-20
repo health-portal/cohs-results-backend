@@ -97,25 +97,6 @@ export class ApprovalController {
   // APPROVAL REQUESTS
   // ============================================================
 
-  @Patch('request/:requestId/respond')
-  @ApiOperation({
-    summary: 'Respond to approval request',
-    description:
-      'Lecturer approves or rejects their assigned step. ' +
-      'All lower-priority steps must be APPROVED before this can be submitted.',
-  })
-  @ApiParam({ name: 'requestId', description: 'Approval request ID' })
-  @ApiBody({ type: RespondToApprovalRequestDto })
-  @ApiResponse({ status: 200, description: 'Response recorded successfully' })
-  @ApiResponse({ status: 400, description: 'Lower-priority step not yet resolved' })
-  @ApiResponse({ status: 404, description: 'Approval request not found' })
-  respond(
-    @Param('requestId') requestId: string,
-    @Body() response: RespondToApprovalRequestDto,
-  ) {
-    return this.approvalManager.respondToApprovalRequest(requestId, response);
-  }
-
   @Get('requests/pending/department/:departmentId')
   @ApiOperation({
     summary: 'Get pending approvals by department',
