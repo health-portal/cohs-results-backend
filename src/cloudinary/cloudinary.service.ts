@@ -17,6 +17,8 @@ export class CloudinaryService {
           resource_type: 'raw', // for non-image files like PDFs, Excel
           public_id:     originalname.replace(/\.[^/.]+$/, ''), // strip extension
           use_filename:  true,
+          type: 'upload',
+          access_mode: 'public',
           unique_filename: true,
         },
         (error, result: UploadApiResponse) => {

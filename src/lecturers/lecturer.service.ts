@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { RegisterStudentBody, EditResultBody } from './lecturers.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ApprovalStatus, FileCategory, ResultType } from '@prisma/client';
+import { ApprovalStatus, DeptResultStatus, FileCategory, ResultType } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import {
   EnrollmentRes,
@@ -108,12 +108,12 @@ async getLecturerCourseSessions(lecturerId: string) {
     courseTitle:     session.course.title,
     session:         session.session.academicYear,
     isApproved:      session.isApproved,
-    isPublished:     session.isPublished,
     deptLevels:      session.deptsAndLevels.map((dl) => ({
       courseSesnDeptLevelId: dl.id,
       department:            dl.department.name,
       departmentId:          dl.department.id,
       level:                 dl.level,
+      status:               dl.resultStatus,
       uploadStatus: dl.resultUploads[0]
         ? {
             uploaded:    true,
@@ -505,7 +505,7 @@ async getLecturerCourseSessions(lecturerId: string) {
     await this.prisma.courseSesnDeptAndLevel.update({
       where: { id: courseSesnDeptLevelId },
       data: {
-        isPublished: true,
+        resultStatus: DeptResultStatus.PUBLISHED,
         publishedAt: new Date(),
       },
     });

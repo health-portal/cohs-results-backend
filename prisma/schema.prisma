@@ -92,6 +92,14 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum DeptResultStatus {
+  REJECTED
+  APPROVED
+  PUBLISHED
+  IN_PROGRESS
+  NOT_UPLOADED
+}
+
 model User {
     id        String    @id @default(uuid())
     createdAt DateTime  @default(now())
@@ -413,7 +421,7 @@ model CourseSesnDeptAndLevel {
     id        String   @id @default(uuid())
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
-    isPublished Boolean   @default(false) 
+    resultStatus    DeptResultStatus   @default(NOT_UPLOADED)
     publishedAt DateTime? 
 
     level Level

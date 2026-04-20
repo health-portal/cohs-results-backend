@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ApprovalStatus, Level } from '@prisma/client';
+import { ApprovalStatus, DeptResultStatus, Level } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PipelineResolverService } from './pipeline-resolver.service';
 import { RespondToApprovalRequestDto } from './approval.dto';
@@ -279,30 +279,41 @@ export class ApprovalManager {
       respondedAt: new Date(),
     },
   });
-
-  if (isLastStep || isRejection) {
+  if (isLastStep && !isRejection) {
     await tx.approvalFlow.update({
       where: { id: approvalRequest.approvalFlowId },
-      data: { approvalStatus: response.approvalStatus },
+      data: { approvalStatus: ApprovalStatus.APPROVED },
+    });
+
+    await tx.courseSesnDeptAndLevel.update({
+      where: {
+        uniqueCourseSesnDeptAndLevel: { // This matches your @@unique index
+          courseSessionId: approvalRequest.approvalFlow.courseSessionId,
+          departmentId:    approvalRequest.approvalFlow.takingDepartmentId,
+          level:           approvalRequest.approvalFlow.level,
+        }
+      },
+      data: {
+        resultStatus: DeptResultStatus.APPROVED, 
+      }
     });
   }
 
-  await tx.approvalSnapshot.create({
-    data: {
-      approvalRequestId,
-      lecturerId:     lecturer.id,
-      lecturerName:   `${lecturer.firstName} ${lecturer.lastName}`,
-      roleHeld:       approvalRequest.lecturerDesignation.role,
-      departmentId:   lecturer.departmentId,
-      departmentName: lecturer.department.name,
-      action:         response.approvalStatus,
-      feedback:       response.feedback ?? null,
-      timestamp:      new Date(),
+  if (isRejection) {
+   await tx.courseSesnDeptAndLevel.update({
+    where: {
+      uniqueCourseSesnDeptAndLevel: {
+        courseSessionId: approvalRequest.approvalFlow.courseSessionId,
+        departmentId:    approvalRequest.approvalFlow.takingDepartmentId,
+        level:           approvalRequest.approvalFlow.level,
+      }
     },
+    data: {
+      resultStatus: DeptResultStatus.REJECTED, 
+    }
   });
-
-if (isRejection) {
-  // Reset the entire flow so it starts from priority 1 again
+  
+   // Reset the entire flow so it starts from priority 1 again
   await this.resetApprovalFlow(approvalRequest.approvalFlowId);
 
   // Fetch the uploader (course lecturer) to notify them of rejection
