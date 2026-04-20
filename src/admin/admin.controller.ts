@@ -26,8 +26,8 @@ import { AdminProfileRes } from './admin.responses';
 @ApiTags('admin', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('admin')
-// @AuthRoles([UserRole.ADMIN])
-// @UseGuards(JwtAuthGuard, UserRoleGuard)
+@AuthRoles([UserRole.ADMIN])
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
