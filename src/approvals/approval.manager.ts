@@ -15,6 +15,8 @@ import type {
   ICourseSessionContext,
   IPipelineStep,
 } from './approval.types';
+import { MessageQueueService } from 'src/message-queue/message-queue.service';
+import { EmailSubject } from 'src/message-queue/message-queue.dto';
 
 @Injectable()
 export class ApprovalManager {
@@ -22,6 +24,7 @@ export class ApprovalManager {
     private readonly prisma: PrismaService,
     private readonly resolver: PipelineResolverService,
     private readonly logger: Logger,
+    private readonly messageQueueService: MessageQueueService,
   ) {}
 
 
@@ -77,7 +80,7 @@ export class ApprovalManager {
         junction.level,
       );
 
-      await tx.approvalRequest.createMany({
+      const requests = await tx.approvalRequest.createMany({
         data: resolvedSteps.map(step => ({
           approvalFlowId: flow.id,
           lecturerDesignationId: step.lecturerDesignationId,
@@ -87,11 +90,35 @@ export class ApprovalManager {
         skipDuplicates: true,
       });
 
+      // Find the first step from your 'resolvedSteps' array
+    const firstStep = resolvedSteps.find(s => s.priority === 1);
+
+    if (firstStep) {
+      // We need to fetch the email because 'resolvedSteps' only has IDs
+      const recipient = await this.prisma.lecturerDesignation.findUnique({
+        where: { id: firstStep.lecturerDesignationId },
+        include: { 
+          lecturer: { 
+            include: { user: { select: { email: true,  } } }
+          } 
+        }
+      });
+
+        if (recipient?.lecturer?.user?.email) {
+          await this.messageQueueService.enqueueNotificationEmail({
+            subject: EmailSubject.APPROVAL_REQUEST,
+            email: recipient.lecturer.user.email,
+            title: 'New Result Approval Request',
+            message: `A new result submission requires your review. Please log in to the portal to approve or provide feedback.`,
+          });
+        }
+      }
       // Update junction status to IN_PROGRESS
       await tx.courseSesnDeptAndLevel.update({
         where: { id: courseSesnDeptLevelId },
         data: { resultStatus: DeptResultStatus.IN_PROGRESS }
       });
+      
 
       return {
         courseSesnDeptLevelId,
@@ -104,20 +131,33 @@ export class ApprovalManager {
       timeout: 30000, // 30 seconds
   });
   }
-  
   async respondToApprovalRequest(
     lecturerId: string,
     approvalRequestId: string,
     response: RespondToApprovalRequestDto,
   ) {
+    // 1. Fetch Request with all necessary Email & Metadata paths
     const request = await this.prisma.approvalRequest.findUnique({
       where: { id: approvalRequestId },
       include: {
         lecturerDesignation: true,
         approvalFlow: {
           include: {
-            approvalRequests: { orderBy: { priority: 'asc' } },
-            courseSesnDeptLevel: { include: { department: true } },
+            lecturer: { include: { user: { select: { email: true,} } } },
+            courseSesnDeptLevel: { 
+              include: { 
+                department: { select: { name: true } },
+                courseSession: { include: { course: { select: { code: true } } } } 
+              } 
+            },
+            approvalRequests: {
+              orderBy: { priority: 'asc' },
+              include: {
+                lecturerDesignation: {
+                  include: { lecturer: { include: { user: { select: { email: true } } } } }
+                }
+              }
+            },
           },
         },
       },
@@ -125,13 +165,8 @@ export class ApprovalManager {
 
     if (!request) throw new NotFoundException('Approval request not found');
 
-    // Security: Check if lecturer is authorized for this role/dept
-    await this.resolver.assertLecturerOwnsDesignation(
-      request.lecturerDesignationId,
-      lecturerId,
-    );
+    await this.resolver.assertLecturerOwnsDesignation(request.lecturerDesignationId, lecturerId);
 
-    // Sequence: Check if earlier steps are pending
     const blockingRequest = request.approvalFlow.approvalRequests.find(
       (req) => req.priority < request.priority && req.status !== ApprovalStatus.APPROVED,
     );
@@ -140,12 +175,15 @@ export class ApprovalManager {
     }
 
     const isLastStep = !request.approvalFlow.approvalRequests.some(
-      (req) => req.id !== approvalRequestId && req.status === ApprovalStatus.REQUESTED,
+      (req) => req.priority > request.priority && req.status === ApprovalStatus.REQUESTED,
     );
     const isRejection = response.approvalStatus === ApprovalStatus.REJECTED;
     const junctionId = request.approvalFlow.courseSesnDeptLevelId;
+    const courseCode = request.approvalFlow.courseSesnDeptLevel.courseSession.course.code;
+    const deptName = request.approvalFlow.courseSesnDeptLevel.department.name;
 
-    return this.prisma.$transaction(async (tx) => {
+    // 4. Database Transaction
+    await this.prisma.$transaction(async (tx) => {
       // A. Update the specific Request
       await tx.approvalRequest.update({
         where: { id: approvalRequestId },
@@ -156,7 +194,7 @@ export class ApprovalManager {
         },
       });
 
-      // B. Handle Rejection
+      // B. Handle Rejection logic
       if (isRejection) {
         await tx.approvalFlow.update({
           where: { id: request.approvalFlowId },
@@ -171,7 +209,7 @@ export class ApprovalManager {
         await this.resetApprovalFlow(request.approvalFlowId);
       } 
       
-      // C. Handle Final Approval
+      // C. Handle Final Approval logic
       else if (isLastStep) {
         await tx.approvalFlow.update({
           where: { id: request.approvalFlowId },
@@ -183,11 +221,54 @@ export class ApprovalManager {
           data: { resultStatus: DeptResultStatus.APPROVED },
         });
       }
-
-      return { success: true };
     });
+
+    // 5. Notification System (Post-Transaction)
+    try {
+      const uploader = request.approvalFlow.lecturer;
+
+      if (isRejection) {
+        await this.messageQueueService.enqueueNotificationEmail({
+          subject: EmailSubject.APPROVAL_REQUEST,
+          email: uploader.user.email,
+          title: 'Submission Feedback Required',
+          message: `Hello ${uploader.firstName}, your result submission for ${courseCode} (${deptName}) was rejected. \n\nReason: ${response.feedback}`,
+        });
+      } 
+      else if (isLastStep) {
+        await this.messageQueueService.enqueueNotificationEmail({
+          subject: EmailSubject.APPROVAL_SUCCESS,
+          email: uploader.user.email,
+          title: 'Approval Process Complete',
+          message: `Hello ${uploader.firstName}, your results for ${courseCode} have been fully approved by all officers.`,
+        });
+      } 
+      else {
+        const nextRequest = request.approvalFlow.approvalRequests.find(
+          (r) => r.priority === request.priority + 1
+        );
+        const nextEmail = (nextRequest as any)?.lecturerDesignation?.lecturer?.user?.email;
+
+        if (nextEmail) {
+          await this.messageQueueService.enqueueNotificationEmail({
+            subject: EmailSubject.APPROVAL_REQUEST,
+            email: nextEmail,
+            title: 'New Action Required',
+            message: `The results for ${courseCode} have been approved by the previous officer and are now awaiting your review.`,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.error('Notification failed to enqueue:', notificationError);
+    }
+
+    return { 
+      success: true, 
+      message: isRejection ? 'Result rejected' : isLastStep ? 'Final approval complete' : 'Step approved' 
+    };
   }
 
+  
   async checkApprovalPipelineStatus(
     approvalFlowId: string,
   ): Promise<IApprovalPipelineStatus> {

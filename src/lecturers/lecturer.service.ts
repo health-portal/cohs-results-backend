@@ -12,6 +12,7 @@ import {
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { ApprovalManager } from 'src/approvals/approval.manager';
 import { ResultProcessorService } from 'src/results/resultProcessor.service';
+import { EmailSubject } from 'src/message-queue/message-queue.dto';
 
 @Injectable()
 export class LecturerService {
@@ -256,7 +257,9 @@ async getLecturerCourseSessions(lecturerId: string) {
     // await this.messageQueueService.enqueueFile({
     //   fileId: createdFile.id,
     // });
-    console.log('Pipeline Result:', JSON.stringify(pipeline, null, 2));
+
+    
+    // console.log('Pipeline Result:', JSON.stringify(pipeline, null, 2));
     return {
     message: 'File uploaded and approval pipeline initiated successfully',
     data: {
@@ -446,6 +449,7 @@ async getLecturerCourseSessions(lecturerId: string) {
     });
   }
 
+
   async publishResults(
     courseSesnDeptLevelId: string,
     lecturerId: string,
@@ -454,89 +458,82 @@ async getLecturerCourseSessions(lecturerId: string) {
       where: { id: courseSesnDeptLevelId },
       include: {
         courseSession: {
-          include: { lecturers: true },
+          include: { lecturers: true, course: true },
         },
       },
     });
 
-    if (!deptLevel) {
-      throw new NotFoundException(
-        `CourseSesnDeptAndLevel ${courseSesnDeptLevelId} not found`,
-      );
-    }
+    if (!deptLevel) throw new NotFoundException(`Record not found`);
 
-    // Guard: lecturer must be assigned to this course session
-    const isAssigned = deptLevel.courseSession.lecturers.some(
-      (cl) => cl.lecturerId === lecturerId,
-    );
+    // 1. Authorization Guard
+    const isAssigned = deptLevel.courseSession.lecturers.some(cl => cl.lecturerId === lecturerId);
+    if (!isAssigned) throw new ForbiddenException('Not assigned to this course');
 
-    if (!isAssigned) {
-      throw new ForbiddenException(
-        'You are not assigned to this course session',
-      );
-    }
-
-    // Guard: the approval flow for this specific dept+level must be APPROVED
-    const approvalFlow = await this.prisma.approvalFlow.findFirst({
-      where: {
-        courseSesnDeptLevelId:    deptLevel.id,
-        approvalStatus:     ApprovalStatus.APPROVED,
-      },
+    // 2. Approval Status Guard
+    const approvalFlow = await this.prisma.approvalFlow.findUnique({
+      where: { courseSesnDeptLevelId }, // Use findUnique since it's @unique
     });
 
-    if (!approvalFlow) {
-      throw new BadRequestException(
-        `The approval flow for this department/level is not fully approved yet`,
-      );
+    if (approvalFlow?.approvalStatus !== ApprovalStatus.APPROVED) {
+      throw new BadRequestException(`Approval flow is not fully approved yet`);
     }
 
-    // Guard: result must have been processed
+    // 3. Result Upload Guard
     const resultUpload = await this.prisma.resultUpload.findUnique({
       where: {
         uniqueResultUpload: {
-          courseSessionId:       deptLevel.courseSessionId,
-          courseSesnDeptLevelId: courseSesnDeptLevelId,
+          courseSessionId: deptLevel.courseSessionId,
+          courseSesnDeptLevelId,
         },
       },
-      // select: { isProcessed: true },
     });
 
-    if (resultUpload?.isProcessed) {
-      throw new BadRequestException(
-        `Results have been processed for this department/level already`,
-      );
-    }
-    else {
-      const publishResult = await this.prisma.resultUpload.update({
-      where: {
-        uniqueResultUpload: {
-          courseSessionId:       deptLevel.courseSessionId,
-          courseSesnDeptLevelId: courseSesnDeptLevelId,
-        },
-      },
-      data: {
-         isProcessed: true
-      }
-    });
-    }
+    if (!resultUpload) throw new NotFoundException('No result upload found to publish');
+    if (resultUpload.isProcessed) throw new BadRequestException('Results already published/processed');
 
-    await this.prisma.courseSesnDeptAndLevel.update({
-      where: { id: courseSesnDeptLevelId },
-      data: {
-        resultStatus: DeptResultStatus.PUBLISHED,
-        publishedAt: new Date(),
-      },
-    });
-    const resultUploadId = resultUpload?.id as string;
-
+    // 4. Execution
+    // Process the Excel/Grades first. If this fails, the status won't change.
     await this.resultProcessorService.processResultUpload({
-      
-      resultUploadId, 
+      resultUploadId: resultUpload.id,
       courseSesnDeptLevelId
-    }
-    )
-  }
+    });
 
+    // Now update statuses
+    await this.prisma.$transaction([
+      this.prisma.resultUpload.update({
+        where: { id: resultUpload.id },
+        data: { isProcessed: true }
+      }),
+      this.prisma.courseSesnDeptAndLevel.update({
+        where: { id: courseSesnDeptLevelId },
+        data: {
+          resultStatus: DeptResultStatus.PUBLISHED,
+          publishedAt: new Date(),
+        },
+      })
+    ]);
+
+    // 5. Notifications (Offloaded to Queue)
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { courseSessionId: deptLevel.courseSessionId },
+      include: { student: { include: { user: { select: { email: true } } } } }
+    });
+
+    const courseCode = deptLevel.courseSession.course.code;
+    
+    // We use Promise.all to enqueue faster, but the loop is fine since it's just DB inserts to the queue
+    for (const record of enrollments) {
+      const email = record.student?.user?.email;
+      if (email) {
+        await this.messageQueueService.enqueueNotificationEmail({
+          subject: EmailSubject.RESULT_UPLOAD,
+          email,
+          title: 'New Grades Available',
+          message: `The results for ${courseCode} have been published. Log in to your portal to view your statement of result.`,
+        });
+      }
+    }
+  }
       
   
 }

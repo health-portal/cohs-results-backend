@@ -4,9 +4,10 @@ import { ApprovalManager } from './approval.manager';
 import { ApprovalController } from './approvals.controller';
 import { TemplateManagerService } from './template-manager.service';
 import { PipelineResolverService } from './pipeline-resolver.service';
+import { MessageQueueModule } from 'src/message-queue/message-queue.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule,MessageQueueModule],
   providers: [
     ApprovalManager,
     PipelineResolverService,
