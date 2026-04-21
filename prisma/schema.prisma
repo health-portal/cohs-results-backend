@@ -130,7 +130,7 @@ model Admin {
     phone String?
 
     userId String @unique
-    user   User   @relation(fields: [userId], references: [id])
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([name])
     @@index([deletedAt])
@@ -152,9 +152,9 @@ model Lecturer {
     qualification String?
 
     userId          String                @unique
-    user            User                  @relation(fields: [userId], references: [id])
+    user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
     departmentId    String
-    department      Department            @relation(fields: [departmentId], references: [id])
+    department      Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
     designations    LecturerDesignation[]
     coursesLectured CourseLecturer[]
     resultUploads   ResultUpload[]
@@ -180,7 +180,7 @@ model LecturerDesignation {
     part   Level?  
 
     lecturerId String
-    lecturer   Lecturer @relation(fields: [lecturerId], references: [id])
+    lecturer   Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
 
     requestedApprovals ApprovalRequest[] @relation("approval_lecturer_designation")
 
@@ -208,9 +208,9 @@ model Student {
     status        StudentStatus @default(ACTIVE)
 
     userId       String     @unique
-    user         User       @relation(fields: [userId], references: [id])
+    user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
     departmentId String
-    department   Department @relation(fields: [departmentId], references: [id])
+    department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
     enrollments Enrollment[]
 
@@ -251,16 +251,13 @@ model Department {
     maxLevel  Level
 
     facultyId String
-    faculty   Faculty @relation(fields: [facultyId], references: [id])
+    faculty   Faculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
     lecturers            Lecturer[]
     students             Student[]
     courseDeptsAndLevels CourseSesnDeptAndLevel[]
     courses              Course[]
     
-    offeringApprovalFlows      ApprovalFlow[]             @relation("OfferingDept")
-    takingApprovalFlows        ApprovalFlow[]             @relation("TakingDept")
-
     @@index([facultyId])
     @@index([deletedAt])
     @@index([name])
@@ -297,7 +294,7 @@ model Course {
     semester    Semester
 
     departmentId String
-    department   Department @relation(fields: [departmentId], references: [id])
+    department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
     courseSessions CourseSession[]
 
@@ -321,17 +318,15 @@ model CourseSession {
     publishedAt DateTime?
 
     courseId        String
-    course          Course        @relation(fields: [courseId], references: [id])
+    course          Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
     gradingSystemId String
-    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id])
+    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id], onDelete: Cascade)
     sessionId       String
-    session         Session       @relation(fields: [sessionId], references: [id])
+    session         Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
     lecturers      CourseLecturer[]
     enrollments    Enrollment[]
     deptsAndLevels CourseSesnDeptAndLevel[]
-
-    approvalFlows ApprovalFlow[] @relation("approval_flow")
     resultUploads    ResultUpload[]
 
     @@unique([courseId, sessionId], name: "uniqueCourseSession")
@@ -373,7 +368,7 @@ model GradingField {
     weight      Float
 
     gradingSystemId String
-    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id])
+    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id], onDelete: Cascade)
 
     @@unique([gradingSystemId, label, variable])
     @@index([label])
@@ -391,7 +386,7 @@ model GradingRange {
     maxScore    Float
 
     gradingSystemId String
-    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id])
+    gradingSystem   GradingSystem @relation(fields: [gradingSystemId], references: [id], onDelete: Cascade)
 
     @@unique([gradingSystemId, label])
     @@index([label])
@@ -406,9 +401,9 @@ model CourseLecturer {
     isCoordinator Boolean @default(false)
 
     courseSessionId String
-    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id])
+    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id], onDelete: Cascade)
     lecturerId      String
-    lecturer        Lecturer      @relation(fields: [lecturerId], references: [id])
+    lecturer        Lecturer      @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
 
     @@unique([courseSessionId, lecturerId], name: "uniqueCourseSessionLecturer")
     @@index([courseSessionId])
@@ -423,13 +418,14 @@ model CourseSesnDeptAndLevel {
     updatedAt DateTime @updatedAt
     resultStatus    DeptResultStatus   @default(NOT_UPLOADED)
     publishedAt DateTime? 
+    approvalFlow    ApprovalFlow?
 
     level Level
 
     departmentId    String
-    department      Department    @relation(fields: [departmentId], references: [id])
+    department      Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
     courseSessionId String
-    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id])
+    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id], onDelete: Cascade)
     resultUploads   ResultUpload[]
 
     @@unique([courseSessionId, departmentId, level], name: "uniqueCourseSesnDeptAndLevel")
@@ -438,6 +434,7 @@ model CourseSesnDeptAndLevel {
     @@index([level])
     @@map("course_session_department_levels")
 }
+
 
 model Enrollment {
     id        String   @id @default(uuid())
@@ -448,9 +445,9 @@ model Enrollment {
     levelAtEnrollment Level
 
     studentId       String
-    student         Student       @relation(fields: [studentId], references: [id])
+    student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
     courseSessionId String
-    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id])
+    courseSession   CourseSession @relation(fields: [courseSessionId], references: [id], onDelete: Cascade)
 
     results Result[]
 
@@ -471,7 +468,7 @@ model Result {
     type        ResultType
 
     enrollmentId String
-    enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+    enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
     @@unique([enrollmentId, type], name: "uniqueResult")
     @@index([enrollmentId])
@@ -497,9 +494,9 @@ model ResultUpload {
     courseSessionId       String
     courseSesnDeptLevelId String
     uploadedById          String   
-    courseSession       CourseSession          @relation(fields: [courseSessionId], references: [id])
-    courseSesnDeptLevel CourseSesnDeptAndLevel @relation(fields: [courseSesnDeptLevelId], references: [id])
-    uploadedBy          Lecturer               @relation(fields: [uploadedById], references: [id])
+    courseSession       CourseSession          @relation(fields: [courseSessionId], references: [id], onDelete: Cascade)
+    courseSesnDeptLevel CourseSesnDeptAndLevel @relation(fields: [courseSesnDeptLevelId], references: [id], onDelete: Cascade)
+    uploadedBy          Lecturer               @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
    
     @@unique([courseSessionId, courseSesnDeptLevelId], name: "uniqueResultUpload")
     @@index([uploadedById])
@@ -522,7 +519,7 @@ model File {
     // resultUpload  ResultUpload?
 
     userId String
-    user   User   @relation(fields: [userId], references: [id])
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("files")
 }
@@ -557,8 +554,8 @@ model PipelineTemplate {
     createdAt       DateTime          @default(now())
     updatedAt       DateTime          @updatedAt
 
-    createdBy    Lecturer  @relation("TemplateCreator", fields: [createdByDeanId], references: [id])
-    activatedBy  Lecturer? @relation("TemplateActivator", fields: [activatedById], references: [id])
+    createdBy    Lecturer  @relation("TemplateCreator", fields: [createdByDeanId], references: [id], onDelete: Cascade)
+    activatedBy  Lecturer? @relation("TemplateActivator", fields: [activatedById], references: [id], onDelete: Cascade)
     faculty      Faculty?    @relation(fields: [facultyId], references: [id])
 
     steps       PipelineTemplateStep[]
@@ -577,7 +574,7 @@ model PipelineTemplateStep {
     scope              PipelineScope // OFFERING_DEPT or TAKING_DEPT
     part               Level?          // only if role == PART_ADVISER
 
-    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id])
+    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id], onDelete: Cascade)
 
     @@unique([pipelineTemplateId, priority])
     @@map("pipeline_template_steps")
@@ -592,38 +589,33 @@ model PipelineTemplateActivation {
     activatedAt        DateTime          @default(now())
     deactivatedAt      DateTime?         // null means still active
 
-    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id])
-    activatedBy      Lecturer         @relation(fields: [activatedById], references: [id])
-    faculty          Faculty?         @relation(fields: [facultyId], references: [id])
+    pipelineTemplate PipelineTemplate @relation(fields: [pipelineTemplateId], references: [id], onDelete: Cascade)
+    activatedBy      Lecturer         @relation(fields: [activatedById], references: [id], onDelete: Cascade)
+    faculty          Faculty?         @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
     @@map("pipeline_template_activations")
 }
 
 // One pipeline per (courseSession + takingDept) pair
 // Rejection in one flow does NOT affect other taking dept flows
+
 model ApprovalFlow {
     id                   String         @id @default(uuid())
-    courseSessionId      String
-    offeringDepartmentId String
-    takingDepartmentId   String
+    courseSesnDeptLevelId String                 @unique
+    courseSesnDeptLevel   CourseSesnDeptAndLevel @relation(fields: [courseSesnDeptLevelId], references: [id], onDelete: Cascade)
+  
     lecturerId           String
-    courseType           CourseType
-    level                Level      
+    courseType           CourseType @default(INTER)
     approvalStatus       ApprovalStatus @default(REQUESTED)
     pipelineTemplateId   String?        // null = default fixed pipeline was used
     createdAt            DateTime       @default(now())
     updatedAt            DateTime       @updatedAt
 
     lecturer           Lecturer    @relation(fields: [lecturerId], references: [id])
-    courseSession      CourseSession    @relation("approval_flow", fields: [courseSessionId], references: [id])
-    offeringDepartment Department       @relation("OfferingDept", fields: [offeringDepartmentId], references: [id])
-    takingDepartment   Department       @relation("TakingDept", fields: [takingDepartmentId], references: [id])
-    pipelineTemplate   PipelineTemplate? @relation(fields: [pipelineTemplateId], references: [id])
+    pipelineTemplate   PipelineTemplate? @relation(fields: [pipelineTemplateId], references: [id], onDelete: Cascade)
 
     approvalRequests ApprovalRequest[]
 
-    @@unique([courseSessionId, takingDepartmentId, level], name: "uniqueApprovalFlow")
-    @@index([courseSessionId, approvalStatus])
     @@map("approval_flows")
 }
 
@@ -638,8 +630,8 @@ model ApprovalRequest {
     createdAt            DateTime       @default(now())
     respondedAt          DateTime?
 
-    approvalFlow        ApprovalFlow        @relation(fields: [approvalFlowId], references: [id])
-    lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id])
+    approvalFlow        ApprovalFlow        @relation(fields: [approvalFlowId], references: [id], onDelete: Cascade)
+    lecturerDesignation LecturerDesignation @relation("approval_lecturer_designation", fields: [lecturerDesignationId], references: [id], onDelete: Cascade)
     snapshot ApprovalSnapshot? // created on APPROVED or REJECTED
 
     @@unique([approvalFlowId, lecturerDesignationId, priority])
@@ -661,7 +653,8 @@ model ApprovalSnapshot {
     feedback          String?
     timestamp         DateTime       @default(now())
 
-    approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id])
+    approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
 
     @@map("approval_snapshots")
 }
+

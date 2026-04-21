@@ -30,65 +30,37 @@ export class PipelineResolverService {
    * Offering dept comes from course.department.
    */
   async resolveCourseSessionContext(
-    courseSessionId: string,
-  ): Promise<ICourseSessionContext> {
-    const courseSession = await this.prisma.courseSession.findUnique({
-      where: { id: courseSessionId },
+   courseSesnDeptLevelId: string) {
+    const junction = await this.prisma.courseSesnDeptAndLevel.findUnique({
+      where: { id: courseSesnDeptLevelId },
       include: {
-        course: {
+        department: { include: { faculty: true } },
+        courseSession: {
           include: {
-            department: { include: { faculty: true } },
-          },
-        },
-        deptsAndLevels: {
-          include: {
-            department: { include: { faculty: true } },
+            course: { include: { department: true } },
           },
         },
       },
     });
-
-    if (!courseSession) {
-      throw new NotFoundException(`Course session ${courseSessionId} not found`);
+    if(!junction) {
+      throw new NotFoundException(`Could not find Course`)
     }
+    const offeringDept = junction?.courseSession.course.department;
+    const takingDept = junction?.department;
 
-    if (!courseSession.deptsAndLevels.length) {
-      throw new BadRequestException(
-        `Course session ${courseSessionId} has no departments/levels assigned`,
-      );
-    }
-
-    const offeringDept = courseSession.course.department;
-
-    const takingDeptLevels: ITakingDeptLevel[] =
-      courseSession.deptsAndLevels.map((dl) => ({
-        departmentId: dl.department.id,
-        departmentName: dl.department.name,
-        facultyId: dl.department.facultyId,
-        level: dl.level,
-      }));
-
-    const courseType = takingDeptLevels.every(
-      (dl) => dl.departmentId === offeringDept.id,
-    )
-      ? CourseType.INTRA
+    const courseType = offeringDept?.id === takingDept?.id 
+      ? CourseType.INTRA 
       : CourseType.INTER;
-
-    return {
-      id: courseSession.id,
-      courseCode: courseSession.course.code,
+return {
+      junctionId: junction?.id,
+      courseCode: junction?.courseSession.course.code,
       offeringDeptId: offeringDept.id,
-      offeringDeptName: offeringDept.name,
       offeringFacultyId: offeringDept.facultyId,
+      takingDeptId: takingDept.id,
+      level: junction.level,
       courseType,
-      takingDeptLevels,
     };
-  }
-
-  // ============================================================
-  // TEMPLATE RESOLUTION
-  // Template is faculty-scoped — one active per faculty at a time
-  // ============================================================
+  }  
 
   /**
    * Find the active template for the offering faculty.
@@ -148,18 +120,16 @@ export class PipelineResolverService {
       where: {
         role,
         lecturer: { departmentId },
-        // part is Level? on the model — pass level directly, no conversion needed
         ...(role === LecturerRole.PART_ADVISER ? { part: level ?? null } : {}),
       },
       include: {
-        lecturer: { include: { department: true } },
+        lecturer: { select: { firstName: true, lastName: true, id: true } },
       },
     });
 
     if (!designation) {
       throw new NotFoundException(
-        `No lecturer found with role ${role} in department ${departmentId}` +
-          (level ? ` for level ${level}` : ''),
+        `No lecturer found for ${role} in Dept ${departmentId}${level ? ` (Level ${level})` : ''}`,
       );
     }
 
@@ -168,8 +138,8 @@ export class PipelineResolverService {
       lecturerId: designation.lecturerId,
       lecturerName: `${designation.lecturer.firstName} ${designation.lecturer.lastName}`,
       role: designation.role,
-      departmentId: designation.lecturer.departmentId,
-      priority: 0,
+      departmentId: departmentId,
+      priority: 0, // Set by caller
     };
   }
 
@@ -182,31 +152,16 @@ export class PipelineResolverService {
     takingDeptId: string,
     level: Level,
   ): Promise<IResolvedStep[]> {
-    const resolved: IResolvedStep[] = [];
+    return Promise.all(
+      steps.map(async (step) => {
+        const deptId = step.scope === PipelineScope.OFFERING_DEPT ? offeringDeptId : takingDeptId;
+        const resolvedLevel = step.role === LecturerRole.PART_ADVISER ? level : undefined;
 
-    for (const step of steps) {
-      const deptId =
-        step.scope === PipelineScope.OFFERING_DEPT
-          ? offeringDeptId
-          : takingDeptId;
-
-      const resolvedLevel =
-        step.role === LecturerRole.PART_ADVISER
-          ? (step.level ?? level)
-          : undefined;
-
-      const resolvedStep = await this.resolveDesignationForStep(
-        step.role,
-        deptId,
-        resolvedLevel,
-      );
-
-      resolved.push({ ...resolvedStep, priority: step.priority });
-    }
-
-    return resolved;
+        const resolved = await this.resolveDesignationForStep(step.role, deptId, resolvedLevel);
+        return { ...resolved, priority: step.priority };
+      }),
+    );
   }
-
   // ============================================================
   // GUARDS
   // ============================================================

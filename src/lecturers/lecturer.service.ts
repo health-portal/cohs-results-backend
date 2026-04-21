@@ -11,6 +11,7 @@ import {
 } from './lecturers.responses';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { ApprovalManager } from 'src/approvals/approval.manager';
+import { ResultProcessorService } from 'src/results/resultProcessor.service';
 
 @Injectable()
 export class LecturerService {
@@ -20,6 +21,7 @@ export class LecturerService {
     private readonly messageQueueService: MessageQueueService,
   private readonly approvalManager: ApprovalManager,
   private readonly cloudinary: CloudinaryService,
+  private readonly resultProcessorService: ResultProcessorService,
   ) {}
 
   private async validateCourseLecturerAccess(
@@ -250,16 +252,17 @@ async getLecturerCourseSessions(lecturerId: string) {
   }
 
   // Trigger approval pipeline
-  const pipeline = await this.approvalManager.buildApprovalPipeline(deptLevel.courseSessionId, lecturerId);
+  const pipeline = await this.approvalManager.buildApprovalPipeline(courseSesnDeptLevelId, lecturerId);
     // await this.messageQueueService.enqueueFile({
     //   fileId: createdFile.id,
     // });
+    console.log('Pipeline Result:', JSON.stringify(pipeline, null, 2));
     return {
     message: 'File uploaded and approval pipeline initiated successfully',
     data: {
       fileName: file.originalname,
-      flowsCreated: pipeline.flows.length,
-      courseType: pipeline.courseType
+      flowsCreated: pipeline?.flows?.length ?? 0, 
+      courseType: pipeline?.courseType
     }
   };
 }
@@ -401,26 +404,29 @@ async getLecturerCourseSessions(lecturerId: string) {
               select:  { priority: true, status: true },
               orderBy: { priority: 'asc' },
             },
-            courseSession: {
+            courseSesnDeptLevel: { 
               include: {
-                course:        { select: { code: true, title: true } },
-                resultUploads: {
-                  where:   { isProcessed: false },
-                  select: {
-                    id:         true,
-                    url:        true,
-                    filename:   true,
-                    mimetype:   true,
-                    resultType: true,
-                    createdAt:  true,
-                    uploadedBy: { select: { firstName: true, lastName: true } },
+                courseSession: {
+                  include: {
+                    course:        { select: { code: true, title: true } },
+                    resultUploads: {
+                      where:   { isProcessed: false },
+                      select: {
+                        id:         true,
+                        url:        true,
+                        filename:   true,
+                        mimetype:   true,
+                        resultType: true,
+                        createdAt:  true,
+                        uploadedBy: { select: { firstName: true, lastName: true } },
+                      },
+                      orderBy: { createdAt: 'desc' },
+                      take: 1,
+                    },
                   },
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
                 },
               },
             },
-            takingDepartment: { select: { name: true } },
           },
         },
       },
@@ -473,9 +479,7 @@ async getLecturerCourseSessions(lecturerId: string) {
     // Guard: the approval flow for this specific dept+level must be APPROVED
     const approvalFlow = await this.prisma.approvalFlow.findFirst({
       where: {
-        courseSessionId:    deptLevel.courseSessionId,
-        takingDepartmentId: deptLevel.departmentId,
-        level:              deptLevel.level,
+        courseSesnDeptLevelId:    deptLevel.id,
         approvalStatus:     ApprovalStatus.APPROVED,
       },
     });
@@ -494,13 +498,26 @@ async getLecturerCourseSessions(lecturerId: string) {
           courseSesnDeptLevelId: courseSesnDeptLevelId,
         },
       },
-      select: { isProcessed: true },
+      // select: { isProcessed: true },
     });
 
-    if (!resultUpload?.isProcessed) {
+    if (resultUpload?.isProcessed) {
       throw new BadRequestException(
-        `Results have not been processed yet for this department/level`,
+        `Results have been processed for this department/level already`,
       );
+    }
+    else {
+      const publishResult = await this.prisma.resultUpload.update({
+      where: {
+        uniqueResultUpload: {
+          courseSessionId:       deptLevel.courseSessionId,
+          courseSesnDeptLevelId: courseSesnDeptLevelId,
+        },
+      },
+      data: {
+         isProcessed: true
+      }
+    });
     }
 
     await this.prisma.courseSesnDeptAndLevel.update({
@@ -510,7 +527,16 @@ async getLecturerCourseSessions(lecturerId: string) {
         publishedAt: new Date(),
       },
     });
+    const resultUploadId = resultUpload?.id as string;
+
+    await this.resultProcessorService.processResultUpload({
+      
+      resultUploadId, 
+      courseSesnDeptLevelId
+    }
+    )
   }
+
       
   
 }

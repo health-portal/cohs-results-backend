@@ -57,7 +57,6 @@ export interface IApprovalPipelineStatus {
   flowId: string;
   courseSessionId: string;
   takingDepartmentId: string;
-  level: Level;
   overallStatus: ApprovalStatus;
   currentPriorityLevel: number;
   maxPriorityLevel: number;

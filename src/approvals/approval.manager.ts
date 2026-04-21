@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ApprovalStatus, DeptResultStatus, Level } from '@prisma/client';
+import { ApprovalStatus, CourseType, DeptResultStatus, Level } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PipelineResolverService } from './pipeline-resolver.service';
 import { RespondToApprovalRequestDto } from './approval.dto';
@@ -24,359 +24,169 @@ export class ApprovalManager {
     private readonly logger: Logger,
   ) {}
 
+
   async buildApprovalPipeline(
-    courseSessionId: string, lecturerId: string
+    courseSesnDeptLevelId: string, 
+    lecturerId: string
   ): Promise<IBuildPipelineResult> {
-    const context =
-      await this.resolver.resolveCourseSessionContext(courseSessionId);
-
-    this.logger.log(
-      `Building pipeline for course ${context.courseCode} ` +
-        `[${context.courseType}] — ${context.takingDeptLevels.length} dept/level pair(s)`,
-    );
-
-    const template = await this.resolver.resolveActiveTemplate(
-      context.offeringFacultyId,
-    );
-
-    const stepDefinitions: IPipelineStep[] = template
-      ? template.steps
-      : this.resolver.getDefaultSteps(context.courseType);
-
-    this.logger.log(
-      template
-        ? `Using custom template: "${template.name}"`
-        : `Using default fixed pipeline for ${context.courseType}`,
-    );
-
-    const flows: IBuildPipelineResult['flows'] = [];
-
-    for (const deptLevel of context.takingDeptLevels) {
-      const flow = await this.createFlowForDeptLevel(
-        context,
-        lecturerId,
-        deptLevel.departmentId,
-        deptLevel.departmentName,
-        deptLevel.level,
-        stepDefinitions,
-        template?.id ?? null,
-      );
-      flows.push(flow);
-    }
-    for (const flow of flows) {
-      const firstRequest = await this.getNextPendingRequest(flow.flowId);
-
-      if (firstRequest) {
-        const notificationPayload = {
-          lecturerId: firstRequest.lecturerDesignation.lecturer.id,
-          title:      'Result Awaiting Your Approval',
-          message:    `A result has been uploaded for your review ` +
-                      `as ${firstRequest.lecturerDesignation.role}. ` +
-                      `Please log in and respond.`,
-        };
-        // await this.notificationService.send(notificationPayload);
+    // 1. Get the junction context
+    const junction = await this.prisma.courseSesnDeptAndLevel.findUnique({
+      where: { id: courseSesnDeptLevelId },
+      include: {
+        courseSession: {
+          include: { 
+            course: { include: { department: true } } 
+          }
+        },
+        department: true,
       }
-    }
+    });
 
-    return {
-      courseSessionId,
-      courseType: context.courseType,
-      templateUsed: template?.name ?? null,
-      flows,
-    };
-  }
+    if (!junction) throw new NotFoundException('Course Session Department/Level record not found');
 
-  /**
-   * Create one ApprovalFlow + all ApprovalRequests for a (dept + level) pair.
-   * Idempotent — safe to call again on result re-upload.
-   */
-  private async createFlowForDeptLevel(
-    context: ICourseSessionContext,
-    lecturerId: string,
-    takingDeptId: string,
-    takingDeptName: string,
-    level: Level,
-    steps: IPipelineStep[],
-    templateId: string | null,
-  ) {
-    const resolvedSteps = await this.resolver.resolveStepsForFlow(
-      steps,
-      context.offeringDeptId,
-      takingDeptId,
-      level,
+    const offeringDeptId = junction.courseSession.course.departmentId;
+    const takingDeptId = junction.departmentId;
+    const courseType = offeringDeptId === takingDeptId ? 'INTRA' : 'INTER';
+
+    // 2. Resolve Template/Steps
+    const template = await this.resolver.resolveActiveTemplate(
+      junction.courseSession.course.department.facultyId,
     );
 
-    // return this.prisma.$transaction(async (tx) => {
-    //   const flow = await tx.approvalFlow.upsert({
-    //     where: {
-    //       uniqueApprovalFlow: {
-    //         courseSessionId: context.id,
-    //         takingDepartmentId: takingDeptId,
-    //         level,
-    //       },
-    //     },
-    //     update: {},
-    //     create: {
-    //       courseSession:      { connect: { id: context.id } },
-    //       offeringDepartment: { connect: { id: context.offeringDeptId } },
-    //       takingDepartment:   { connect: { id: takingDeptId } },
-    //       lecturer: { connect: { id: lecturerId } },
-    //       level,
-    //       courseType:       context.courseType,
-    //       approvalStatus:   ApprovalStatus.REQUESTED,
-    //       pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
-    //     },
-    //   });
+    const stepDefinitions = template
+      ? template.steps
+      : this.resolver.getDefaultSteps(courseType as any);
 
-    //   for (const step of resolvedSteps) {
-    //     await tx.approvalRequest.upsert({
-    //       where: {
-    //         approvalFlowId_lecturerDesignationId_priority: {
-    //           approvalFlowId: flow.id,
-    //           lecturerDesignationId: step.lecturerDesignationId,
-    //           priority: step.priority,
-    //         },
-    //       },
-    //       update: {},
-    //       create: {
-    //         approvalFlowId:        flow.id,
-    //         lecturerDesignationId: step.lecturerDesignationId,
-    //         priority:              step.priority,
-    //         status:                ApprovalStatus.REQUESTED,
-    //       },
-    //     });
-
-    //     this.logger.log(
-    //       `ApprovalRequest → ${step.role} (${step.lecturerName}) ` +
-    //         `for "${takingDeptName}" [${level}] at priority ${step.priority}`,
-    //     );
-    //   }
-
-    //   return {
-    //     flowId:              flow.id,
-    //     takingDepartmentId:  takingDeptId,
-    //     takingDepartmentName: takingDeptName,
-    //     level,
-    //     stepsCreated:        resolvedSteps.length,
-    //   };
-    // });
-
-    // Inside createFlowForDeptLevel
+    // 3. Create the Flow
     return this.prisma.$transaction(async (tx) => {
       const flow = await tx.approvalFlow.upsert({
-            where: {
-              uniqueApprovalFlow: {
-                courseSessionId: context.id,
-                takingDepartmentId: takingDeptId,
-                level,
-              },
-            },
-            update: {},
-            create: {
-              courseSession:      { connect: { id: context.id } },
-              offeringDepartment: { connect: { id: context.offeringDeptId } },
-              takingDepartment:   { connect: { id: takingDeptId } },
-              lecturer: { connect: { id: lecturerId } },
-              level,
-              courseType:       context.courseType,
-              approvalStatus:   ApprovalStatus.REQUESTED,
-              pipelineTemplate: templateId ? { connect: { id: templateId } } : undefined,
-            },
-          });
-
-
-      // 1. Prepare all the data first
-      const requestsData = resolvedSteps.map(step => ({
-        approvalFlowId: flow.id,
-        lecturerDesignationId: step.lecturerDesignationId,
-        priority: step.priority,
-        status: ApprovalStatus.REQUESTED,
-      }));
-
-      // 2. Fire one single command to the DB instead of a loop
-      await tx.approvalRequest.createMany({
-        data: requestsData,
-        skipDuplicates: true, 
+        where: { courseSesnDeptLevelId },
+        update: { approvalStatus: ApprovalStatus.REQUESTED },
+        create: {
+          courseSesnDeptLevel: { connect: { id: courseSesnDeptLevelId } },
+          lecturer: { connect: { id: lecturerId } },
+          approvalStatus: ApprovalStatus.REQUESTED,
+        },
       });
 
-          return {
-            flowId:              flow.id,
-            takingDepartmentId:  takingDeptId,
-            takingDepartmentName: takingDeptName,
-            level,
-            stepsCreated:        resolvedSteps.length,
-          };
-    }, {
-      timeout: 15000 // Give it a bit more breathing room
-    });
+      // 4. Resolve and create Requests
+      const resolvedSteps = await this.resolver.resolveStepsForFlow(
+        stepDefinitions,
+        offeringDeptId,
+        takingDeptId,
+        junction.level,
+      );
+
+      await tx.approvalRequest.createMany({
+        data: resolvedSteps.map(step => ({
+          approvalFlowId: flow.id,
+          lecturerDesignationId: step.lecturerDesignationId,
+          priority: step.priority,
+          status: ApprovalStatus.REQUESTED,
+        })),
+        skipDuplicates: true,
+      });
+
+      // Update junction status to IN_PROGRESS
+      await tx.courseSesnDeptAndLevel.update({
+        where: { id: courseSesnDeptLevelId },
+        data: { resultStatus: DeptResultStatus.IN_PROGRESS }
+      });
+
+      return {
+        courseSesnDeptLevelId,
+        flowId: flow.id,
+        stepsCreated: resolvedSteps.length,
+      } as any;
+    }, 
+    {
+      maxWait: 5000, // default is 2000
+      timeout: 30000, // 30 seconds
+  });
   }
-
-
+  
   async respondToApprovalRequest(
     lecturerId: string,
     approvalRequestId: string,
     response: RespondToApprovalRequestDto,
   ) {
-    const approvalRequest = await this.prisma.approvalRequest.findUnique({
+    const request = await this.prisma.approvalRequest.findUnique({
       where: { id: approvalRequestId },
       include: {
-        lecturerDesignation: {
-          include: {
-            lecturer: { include: { department: true } },
-          },
-        },
+        lecturerDesignation: true,
         approvalFlow: {
           include: {
             approvalRequests: { orderBy: { priority: 'asc' } },
+            courseSesnDeptLevel: { include: { department: true } },
           },
         },
       },
     });
 
-    if (!approvalRequest) {
-      throw new NotFoundException(`Approval request ${approvalRequestId} not found`);
-    }
+    if (!request) throw new NotFoundException('Approval request not found');
 
+    // Security: Check if lecturer is authorized for this role/dept
     await this.resolver.assertLecturerOwnsDesignation(
-      approvalRequest.lecturerDesignationId,
+      request.lecturerDesignationId,
       lecturerId,
     );
 
-    if (approvalRequest.status !== ApprovalStatus.REQUESTED) {
-      throw new BadRequestException(
-        `This request is already ${approvalRequest.status} and cannot be modified`,
-      );
-    }
-
-    const blockingRequest = approvalRequest.approvalFlow.approvalRequests.find(
-      (req) =>
-        req.priority < approvalRequest.priority &&
-        req.status !== ApprovalStatus.APPROVED,
+    // Sequence: Check if earlier steps are pending
+    const blockingRequest = request.approvalFlow.approvalRequests.find(
+      (req) => req.priority < request.priority && req.status !== ApprovalStatus.APPROVED,
     );
-
     if (blockingRequest) {
-      throw new BadRequestException(
-        `A lower-priority step (priority ${blockingRequest.priority}) ` +
-          `has status "${blockingRequest.status}" and must be resolved first`,
-      );
+      throw new BadRequestException(`Step ${blockingRequest.priority} must be approved first`);
     }
 
-    const isLastStep =
-      approvalRequest.approvalFlow.approvalRequests.filter(
-        (req) =>
-          req.id !== approvalRequestId &&
-          req.status === ApprovalStatus.REQUESTED,
-      ).length === 0;
-
+    const isLastStep = !request.approvalFlow.approvalRequests.some(
+      (req) => req.id !== approvalRequestId && req.status === ApprovalStatus.REQUESTED,
+    );
     const isRejection = response.approvalStatus === ApprovalStatus.REJECTED;
-    const lecturer = approvalRequest.lecturerDesignation.lecturer;
+    const junctionId = request.approvalFlow.courseSesnDeptLevelId;
 
     return this.prisma.$transaction(async (tx) => {
-  const updated = await tx.approvalRequest.update({
-    where: { id: approvalRequestId },
-    data: {
-      status:      response.approvalStatus,
-      feedback:    response.feedback ?? null,
-      respondedAt: new Date(),
-    },
-  });
-  if (isLastStep && !isRejection) {
-    await tx.approvalFlow.update({
-      where: { id: approvalRequest.approvalFlowId },
-      data: { approvalStatus: ApprovalStatus.APPROVED },
-    });
+      // A. Update the specific Request
+      await tx.approvalRequest.update({
+        where: { id: approvalRequestId },
+        data: {
+          status: response.approvalStatus,
+          feedback: response.feedback ?? null,
+          respondedAt: new Date(),
+        },
+      });
 
-    await tx.courseSesnDeptAndLevel.update({
-      where: {
-        uniqueCourseSesnDeptAndLevel: { // This matches your @@unique index
-          courseSessionId: approvalRequest.approvalFlow.courseSessionId,
-          departmentId:    approvalRequest.approvalFlow.takingDepartmentId,
-          level:           approvalRequest.approvalFlow.level,
-        }
-      },
-      data: {
-        resultStatus: DeptResultStatus.APPROVED, 
+      // B. Handle Rejection
+      if (isRejection) {
+        await tx.approvalFlow.update({
+          where: { id: request.approvalFlowId },
+          data: { approvalStatus: ApprovalStatus.REJECTED },
+        });
+
+        await tx.courseSesnDeptAndLevel.update({
+          where: { id: junctionId },
+          data: { resultStatus: DeptResultStatus.REJECTED },
+        });
+
+        await this.resetApprovalFlow(request.approvalFlowId);
+      } 
+      
+      // C. Handle Final Approval
+      else if (isLastStep) {
+        await tx.approvalFlow.update({
+          where: { id: request.approvalFlowId },
+          data: { approvalStatus: ApprovalStatus.APPROVED },
+        });
+
+        await tx.courseSesnDeptAndLevel.update({
+          where: { id: junctionId },
+          data: { resultStatus: DeptResultStatus.APPROVED },
+        });
       }
+
+      return { success: true };
     });
   }
-
-  if (isRejection) {
-   await tx.courseSesnDeptAndLevel.update({
-    where: {
-      uniqueCourseSesnDeptAndLevel: {
-        courseSessionId: approvalRequest.approvalFlow.courseSessionId,
-        departmentId:    approvalRequest.approvalFlow.takingDepartmentId,
-        level:           approvalRequest.approvalFlow.level,
-      }
-    },
-    data: {
-      resultStatus: DeptResultStatus.REJECTED, 
-    }
-  });
-  
-   // Reset the entire flow so it starts from priority 1 again
-  await this.resetApprovalFlow(approvalRequest.approvalFlowId);
-
-  // Fetch the uploader (course lecturer) to notify them of rejection
-  const resultUpload = await this.prisma.resultUpload.findFirst({
-    where: {
-      courseSession: {
-        approvalFlows: { some: { id: approvalRequest.approvalFlowId } },
-      },
-    },
-    include: {
-      uploadedBy: true,
-    },
-  });
-
-  if (resultUpload) {
-    const notificationPayload = {
-      lecturerId: resultUpload.uploadedById,
-      title:      'Result Rejected',
-      message:    `Your uploaded result was rejected by ${lecturer.title} ${lecturer.firstName} ${lecturer.lastName} ` +
-                  `[${approvalRequest.lecturerDesignation.role}]. ` +
-                  `Reason: ${response.feedback ?? 'No reason provided'}. ` +
-                  `The approval flow has been reset — please review and re-upload.`,
-    };
-    // await this.notificationService.send(notificationPayload);
-  }
-} else if (!isLastStep) {
-  const nextRequest = await this.getNextPendingRequest(
-    approvalRequest.approvalFlowId,
-  );
-
-  if (nextRequest) {
-    const notificationPayload = {
-      lecturerId: nextRequest.lecturerDesignation.lecturer.id,
-      title:      'Result Awaiting Your Approval',
-      message:    `A result upload for course session requires your approval ` +
-                  `as ${nextRequest.lecturerDesignation.role}. ` +
-                  `Please review and respond.`,
-    };
-    // await this.notificationService.send(notificationPayload);
-  }
-} else {
-  const resultUpload = await this.prisma.resultUpload.findFirst({
-    where: {
-      courseSession: {
-        approvalFlows: { some: { id: approvalRequest.approvalFlowId } },
-      },
-    },
-    include: { uploadedBy: true },
-  });
-
-  if (resultUpload) {
-    const notificationPayload = {
-      lecturerId: resultUpload.uploadedById,
-      title:      'Result Fully Approved',
-      message:    `Your uploaded result has been approved by all required parties.`,
-    };
-  }
-}
-
-  }
-) 
-}
 
   async checkApprovalPipelineStatus(
     approvalFlowId: string,
@@ -392,6 +202,7 @@ export class ApprovalManager {
             },
           },
         },
+        courseSesnDeptLevel : true,
       },
     });
 
@@ -420,9 +231,8 @@ export class ApprovalManager {
 
     return {
       flowId:              approvalFlowId,
-      courseSessionId:     flow.courseSessionId,
-      takingDepartmentId:  flow.takingDepartmentId,
-      level:               flow.level,
+      courseSessionId:     flow.courseSesnDeptLevelId,
+      takingDepartmentId:  flow.courseSesnDeptLevel.id,
       overallStatus:       flow.approvalStatus,
       currentPriorityLevel: currentStep?.priority ?? maxPriorityLevel,
       maxPriorityLevel,
@@ -431,31 +241,46 @@ export class ApprovalManager {
     };
   }
 
-  async checkAllFlowsForCourseSession(courseSessionId: string) {
-    const flows = await this.prisma.approvalFlow.findMany({
+async checkAllFlowsForCourseSession(courseSessionId: string) {
+    // 1. Fetch the junction records for this course session
+    // Each junction record potentially has ONE unique approval flow
+    const junctions = await this.prisma.courseSesnDeptAndLevel.findMany({
       where: { courseSessionId },
       include: {
-        takingDepartment: { select: { name: true } },
-        approvalRequests: {
-          select: { status: true, priority: true },
-          orderBy: { priority: 'asc' },
+        department: { select: { name: true } },
+        // Reach into the 1-to-1 relation we added to schema.prisma
+        approvalFlow: {
+          include: {
+            approvalRequests: {
+              select: { status: true, priority: true },
+              orderBy: { priority: 'asc' },
+            },
+          },
         },
       },
-      orderBy: { takingDepartmentId: 'asc' },
+      orderBy: { departmentId: 'asc' },
     });
 
-    return flows.map((flow) => ({
-      flowId:              flow.id,
-      takingDepartmentId:  flow.takingDepartmentId,
-      takingDepartmentName: flow.takingDepartment.name,
-      level:               flow.level,
-      overallStatus:       flow.approvalStatus,
-      courseType:          flow.courseType,
-      totalSteps:          flow.approvalRequests.length,
-      approvedSteps:       flow.approvalRequests.filter(
-        (r) => r.status === ApprovalStatus.APPROVED,
-      ).length,
-    }));
+    // 2. Map the junctions (the source of truth for "who is taking the course")
+    return junctions.map((junction) => {
+      const flow = junction.approvalFlow;
+      
+      return {
+        junctionId: junction.id,
+        takingDepartmentId: junction.departmentId,
+        takingDepartmentName: junction.department.name,
+        level: junction.level,
+        resultStatus: junction.resultStatus, // Current badge status (APPROVED, REJECTED, etc.)
+        
+        // Flow specific details (if the flow has been built/triggered)
+        flowId: flow?.id ?? null,
+        overallStatus: flow?.approvalStatus ?? 'NOT_UPLOADED',
+        totalSteps: flow?.approvalRequests.length ?? 0,
+        approvedSteps: flow?.approvalRequests.filter(
+          (r) => r.status === ApprovalStatus.APPROVED,
+        ).length ?? 0,
+      };
+    });
   }
 
   async getApprovalAuditTrail(approvalFlowId: string) {
@@ -476,25 +301,20 @@ export class ApprovalManager {
     }));
   }
 
-
 async resetApprovalFlow(approvalFlowId: string): Promise<void> {
-  await this.prisma.$transaction(async (tx) => {
-    await tx.approvalRequest.updateMany({
+    await this.prisma.approvalRequest.updateMany({
       where: { approvalFlowId },
       data: {
-        status:      ApprovalStatus.REQUESTED,
-        feedback:    null,
+        status: ApprovalStatus.REQUESTED,
+        feedback: null,
         respondedAt: null,
       },
     });
-
-    await tx.approvalFlow.update({
+    await this.prisma.approvalFlow.update({
       where: { id: approvalFlowId },
       data: { approvalStatus: ApprovalStatus.REQUESTED },
     });
-  });
-}
-
+  }
 /**
  * Get the next pending ApprovalRequest in a flow (lowest priority with REQUESTED status).
  * Returns null if no pending requests remain.
@@ -514,42 +334,54 @@ async getNextPendingRequest(approvalFlowId: string) {
   });
 }
 
-
-async pendingFacultyApproval(departmentId: string) {
-    const requests = await this.prisma.approvalRequest.findMany({
-      where: {
-        status: ApprovalStatus.REQUESTED,
-        lecturerDesignation: {
-          lecturer: { departmentId },
-        },
+async pendingDepartmentApproval(departmentId: string) {
+  const requests = await this.prisma.approvalRequest.findMany({
+    where: {
+      status: ApprovalStatus.REQUESTED,
+      lecturerDesignation: {
+        lecturer: { departmentId },
       },
-      include: {
-        approvalFlow: {
-          include: {
-            courseSession: {
-              include: {
-                course:        { select: { code: true, title: true } },
-                resultUploads: {
-                  include: {
-                    uploadedBy: { select: { firstName: true, lastName: true } },
+    },
+    include: {
+      approvalFlow: {
+        include: {
+          courseSesnDeptLevel: {
+            include: {
+              department: { select: { name: true } }, // To get takingDept name
+              courseSession: {
+                include: {
+                  course: {
+                    include: { department: { select: { name: true } } }, // To get offeringDept name
                   },
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
+                  resultUploads: {
+                    include: {
+                      uploadedBy: { select: { firstName: true, lastName: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                  },
                 },
               },
             },
-            takingDepartment: { select: { name: true } },
           },
         },
-        lecturerDesignation: { select: { role: true, part: true } },
       },
-      orderBy: { createdAt: 'asc' },
-    });
-  
-    return this.mapPendingRequests(requests);
-  
+      lecturerDesignation: {
+        include: {
+          lecturer: {
+            include: { department: { select: { name: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return this.mapPendingRequests(requests, true);
 }
-async pendingDepartmentApproval(facultyId: string) {
+
+
+async pendingFacultyApproval(facultyId: string) {
   
     const requests = await this.prisma.approvalRequest.findMany({
       where: {
@@ -560,72 +392,87 @@ async pendingDepartmentApproval(facultyId: string) {
           },
         },
       },
-      include: {
-        approvalFlow: {
-          include: {
-            courseSession: {
-              include: {
-                course:        { select: { code: true, title: true } },
-                resultUploads: {
-                  include: {
-                    uploadedBy: { select: { firstName: true, lastName: true } },
+    include: {
+      approvalFlow: {
+        include: {
+          courseSesnDeptLevel: {
+            include: {
+              department: { select: { name: true } }, // To get takingDept name
+              courseSession: {
+                include: {
+                  course: {
+                    include: { department: { select: { name: true } } }, // To get offeringDept name
                   },
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
+                  resultUploads: {
+                    include: {
+                      uploadedBy: { select: { firstName: true, lastName: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                  },
                 },
-              },
-            },
-            takingDepartment: { select: { name: true } },
-            offeringDepartment: { select: { name: true } },
-          },
-        },
-        lecturerDesignation: {
-          select: {
-            role: true,
-            part: true,
-            lecturer: {
-              select: {
-                firstName:  true,
-                lastName:   true,
-                department: { select: { name: true } },
               },
             },
           },
         },
       },
-      orderBy: { createdAt: 'asc' },
-    });
-  
-    return this.mapPendingRequests(requests, true);
+      lecturerDesignation: {
+        include: {
+          lecturer: {
+            include: { department: { select: { name: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return this.mapPendingRequests(requests, true);
 }
+
 
 private mapPendingRequests(requests: any[], includeDept = false) {
-  return requests.map((req) => ({
-    requestId:      req.id,
-    priority:       req.priority,
-    role:           req.lecturerDesignation.role,
-    part:           req.lecturerDesignation.part,
-    ...(includeDept && {
-      assignedTo: `${req.lecturerDesignation.lecturer.firstName} ${req.lecturerDesignation.lecturer.lastName}`,
-      department: req.lecturerDesignation.lecturer.department.name,
-    }),
-    takingDept:     req.approvalFlow.takingDepartment.name,
-    ...(includeDept && {
-      offeringDept: req.approvalFlow.offeringDepartment.name,
-    }),
-    level:          req.approvalFlow.level,
-    courseCode:     req.approvalFlow.courseSession.course.code,
-    courseTitle:    req.approvalFlow.courseSession.course.title,
-    uploadedBy:     req.approvalFlow.courseSession.resultUploads[0]
-                      ? `${req.approvalFlow.courseSession.resultUploads[0].uploadedBy.firstName} ${req.approvalFlow.courseSession.resultUploads[0].uploadedBy.lastName}`
-                      : null,
-    resultFile:     req.approvalFlow.courseSession.resultUploads[0]?.file ?? null,
-    flowStatus:     req.approvalFlow.approvalStatus,
-    createdAt:      req.createdAt,
-  }));
+  return requests.map((req) => {
+    const flow = req.approvalFlow;
+    const junction = flow.courseSesnDeptLevel;
+    const session = junction.courseSession;
+    const course = session.course;
+    const latestUpload = session.resultUploads[0];
+
+    return {
+      requestId:    req.id,
+      priority:     req.priority,
+      role:         req.lecturerDesignation.role,
+      part:         req.lecturerDesignation.part,
+      
+      ...(includeDept && {
+        assignedTo: `${req.lecturerDesignation.lecturer.firstName} ${req.lecturerDesignation.lecturer.lastName}`,
+        department:  req.lecturerDesignation.lecturer.department.name,
+      }),
+
+      // Taking Dept is now on the Junction
+      takingDept:   junction.department.name,
+      
+      ...(includeDept && {
+        // Offering Dept is now on the Course (accessed via Session)
+        offeringDept: course.department.name,
+      }),
+
+      // Level is now on the Junction
+      level:        junction.level,
+      courseCode:   course.code,
+      courseTitle:  course.title,
+      
+      uploadedBy: latestUpload
+        ? `${latestUpload.uploadedBy.firstName} ${latestUpload.uploadedBy.lastName}`
+        : null,
+      
+      resultFile: latestUpload?.file ?? null,
+      flowStatus: flow.approvalStatus,
+      createdAt:  req.createdAt,
+    };
+  });
 }
 
 
-
 }
-

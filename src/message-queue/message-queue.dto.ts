@@ -11,7 +11,7 @@ export enum QueueTable {
 
 export interface ProcessResultsPayload {
   resultUploadId:  string;
-  courseSessionId: string;
+  courseSesnDeptLevelId: string;
 }
 // Files
 export interface ParseFilePayload {

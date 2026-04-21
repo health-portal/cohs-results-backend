@@ -17,12 +17,9 @@ export class ResultProcessorService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // ============================================================
-  // ENTRY POINT — called by PgBoss worker
-  // ============================================================
 
   async processResultUpload(payload: ProcessResultsPayload): Promise<void> {
-    const { resultUploadId, courseSessionId} = payload;
+    const { resultUploadId, courseSesnDeptLevelId} = payload;
 
     this.logger.log(`Processing ResultUpload ${resultUploadId}`);
 
@@ -61,9 +58,7 @@ export class ResultProcessorService {
     // 2. Verify the approval flow for this dept+level is APPROVED
     const approvalFlow = await this.prisma.approvalFlow.findFirst({
       where: {
-        courseSessionId,
-        takingDepartmentId: resultUpload.courseSesnDeptLevel.departmentId,
-        level:              resultUpload.courseSesnDeptLevel.level,
+        courseSesnDeptLevelId,
         approvalStatus:     ApprovalStatus.APPROVED,
       },
     });
@@ -90,10 +85,11 @@ export class ResultProcessorService {
 
     // 5. Resolve grading system
     const gradingSystem = resultUpload.courseSession.gradingSystem;
+    const courseSessionId = resultUpload.courseSessionId;
 
     if (!gradingSystem) {
       throw new Error(
-        `No grading system found for course session ${courseSessionId}`,
+        `No grading system found for this course session `,
       );
     }
 
