@@ -43,8 +43,8 @@ import { LecturerProfileRes } from './lecturers.responses';
 @ApiTags('lecturers', 'Admin')
 @ApiBearerAuth('accessToken')
 @Controller('lecturers')
-// @AuthRoles([UserRole.ADMIN])
-// @UseGuards(JwtAuthGuard, UserRoleGuard)
+@AuthRoles([UserRole.ADMIN])
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class LecturersController {
   constructor(private readonly lecturersService: LecturersService) {}
 
@@ -74,7 +74,7 @@ export class LecturersController {
   })
   @Post('batch')
   async uploadFileForLecturers(
-    // @User('sub') userId: string,
+    @User('sub') userId: string,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
@@ -91,7 +91,7 @@ export class LecturersController {
     )
     file: Express.Multer.File,
   ) {
-    const userId = "cd910b76-aa5a-46ad-b3f1-6e54a3218ce6";
+    // const userId = "cd910b76-aa5a-46ad-b3f1-6e54a3218ce6";
     return await this.lecturersService.uploadFileForLecturers(userId, file);
   }
 
