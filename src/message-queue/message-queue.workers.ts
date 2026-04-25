@@ -14,13 +14,10 @@ import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PgBossProvider } from './pg-boss.provider';
 import env from 'src/environment';
-import { ResultsProcessorModule } from 'src/results/resultProcessor.module';
-import { ResultProcessorService } from 'src/results/resultProcessor.service';
 
 @Module({
   imports: [
     FilesModule,
-    ResultsProcessorModule,
     JwtModule.register({ secret: env.JWT_SECRET, global: true }),
     PrismaModule,
     TokensModule,
@@ -34,7 +31,6 @@ export class MessageQueueWorkersModule
 
   constructor(
     private readonly filesService: FilesService,
-    private readonly resultProcessorService: ResultProcessorService,
     @Inject('PG_BOSS') private readonly boss: PgBoss,
   ) {
     this.emailClient = createClient({
@@ -44,6 +40,7 @@ export class MessageQueueWorkersModule
   }
 
   async onModuleInit() {
+    await this.boss.start();
     await this.processEmail();
     await this.processFile();
     await this.processResults(); 
@@ -71,13 +68,21 @@ export class MessageQueueWorkersModule
   private async processFile() {
     await this.boss.work(QueueTable.FILES, async ([job]) => {
       const payload = job.data as ParseFilePayload;
+    console.log(`[WORKER] Received Job ID: ${job.id} with File ID:`);
+    
+    try {
       await this.filesService.parseFile(payload);
+      console.log(`[WORKER] Job ${job.id} finished successfully.`);
+    } catch (err) {
+      console.error(`[WORKER] Job ${job.id} failed: ${err.message}`);
+      throw err; 
+    }
     });
   }
   private async processResults() {
     await this.boss.work(QueueTable.PROCESS_RESULTS, async ([job]) => {
       const payload = job.data as ProcessResultsPayload;
-      await this.resultProcessorService.processResultUpload(payload);
+      await this.filesService.processResultUpload(payload);
     });
   }
 }

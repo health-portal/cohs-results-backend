@@ -19,26 +19,39 @@ export class CreateLecturerRes extends CreateLecturerBody {
   isCreated: boolean;
 }
 
+// export class CreateLecturersRes extends ParseCsvData<CreateLecturerBody> {
+//   @ApiProperty({ type: [CreateLecturerRes] })
+//   lecturers: CreateLecturerRes[];
+// }
 export class CreateLecturersRes extends ParseCsvData<CreateLecturerBody> {
   @ApiProperty({ type: [CreateLecturerRes] })
   lecturers: CreateLecturerRes[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  success: number;
+
+  @ApiProperty()
+  failed: number;
 }
-
 export class UploadResultsRes extends ParseCsvData<UploadResultRow> {
-  @ApiProperty()
-  studentsUploadedFor: string[];
-
-  @ApiProperty()
-  studentsNotFound: string[];
+  @ApiProperty() studentsUploadedFor: string[];
+  @ApiProperty() studentsNotFound: string[];
+  @ApiProperty() total: number;
+  @ApiProperty() success: number;
+  @ApiProperty() failed: number;
 }
 
 export class RegisterStudentsRes extends ParseCsvData<RegisterStudentBody> {
-  @ApiProperty()
-  registeredStudents: string[];
-
-  @ApiProperty()
-  unregisteredStudents: string[];
+  @ApiProperty() registeredStudents: string[];
+  @ApiProperty() unregisteredStudents: string[];
+  @ApiProperty() total: number;
+  @ApiProperty() success: number;
+  @ApiProperty() failed: number;
 }
+
 
 class Student extends PickType(StudentResponse, [
   'id',

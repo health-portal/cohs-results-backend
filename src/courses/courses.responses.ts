@@ -11,6 +11,9 @@ export class CreateCourseRes extends CreateCourseBody {
 export class CreateCoursesRes extends ParseCsvData<CreateCourseBody> {
   @ApiProperty({ type: [CreateCourseRes] })
   courses: CreateCourseRes[];
+  @ApiProperty() total: number;
+  @ApiProperty() success: number;
+  @ApiProperty() failed: number;
 }
 
 export class CourseRes extends PickType(CourseResponse, [

@@ -11,8 +11,8 @@ import {
 } from './lecturers.responses';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { ApprovalManager } from 'src/approvals/approval.manager';
-import { ResultProcessorService } from 'src/results/resultProcessor.service';
 import { EmailSubject } from 'src/message-queue/message-queue.dto';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class LecturerService {
@@ -20,9 +20,9 @@ export class LecturerService {
     // @Inject(forwardRef(() => ApprovalManager))
     private readonly prisma: PrismaService,
     private readonly messageQueueService: MessageQueueService,
-  private readonly approvalManager: ApprovalManager,
-  private readonly cloudinary: CloudinaryService,
-  private readonly resultProcessorService: ResultProcessorService,
+    private readonly approvalManager: ApprovalManager,
+    private readonly cloudinary: CloudinaryService,
+    private readonly filesService: FilesService,
   ) {}
 
   private async validateCourseLecturerAccess(
@@ -157,6 +157,7 @@ async getLecturerCourseSessions(lecturerId: string) {
     file: Express.Multer.File,
   ) {
     await this.validateCourseLecturerAccess(lecturerId, userId, true);
+    await this.filesService.validateFileHeaders(file, FileCategory.STUDENTS);
     const createdFile = await this.prisma.file.create({
       data: {
         filename: file.originalname,
@@ -194,6 +195,7 @@ async getLecturerCourseSessions(lecturerId: string) {
         `Course Session, Department, And Level ${courseSesnDeptLevelId} not found`,
       );
     }
+    await this.filesService.validateResultHeaders(file, deptLevel.courseSessionId);
 
     const existing = await this.prisma.resultUpload.findUnique({
     where: {
@@ -254,12 +256,7 @@ async getLecturerCourseSessions(lecturerId: string) {
 
   // Trigger approval pipeline
   const pipeline = await this.approvalManager.buildApprovalPipeline(courseSesnDeptLevelId, lecturerId);
-    // await this.messageQueueService.enqueueFile({
-    //   fileId: createdFile.id,
-    // });
-
-    
-    // console.log('Pipeline Result:', JSON.stringify(pipeline, null, 2));
+  
     return {
     message: 'File uploaded and approval pipeline initiated successfully',
     data: {
@@ -491,49 +488,13 @@ async getLecturerCourseSessions(lecturerId: string) {
     if (!resultUpload) throw new NotFoundException('No result upload found to publish');
     if (resultUpload.isProcessed) throw new BadRequestException('Results already published/processed');
 
-    // 4. Execution
-    // Process the Excel/Grades first. If this fails, the status won't change.
-    await this.resultProcessorService.processResultUpload({
+    
+    await this.messageQueueService.enqueueProcessResults({
       resultUploadId: resultUpload.id,
       courseSesnDeptLevelId
     });
-
-    // Now update statuses
-    await this.prisma.$transaction([
-      this.prisma.resultUpload.update({
-        where: { id: resultUpload.id },
-        data: { isProcessed: true }
-      }),
-      this.prisma.courseSesnDeptAndLevel.update({
-        where: { id: courseSesnDeptLevelId },
-        data: {
-          resultStatus: DeptResultStatus.PUBLISHED,
-          publishedAt: new Date(),
-        },
-      })
-    ]);
-
-    // 5. Notifications (Offloaded to Queue)
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: { courseSessionId: deptLevel.courseSessionId },
-      include: { student: { include: { user: { select: { email: true } } } } }
-    });
-
-    const courseCode = deptLevel.courseSession.course.code;
-    
-    // We use Promise.all to enqueue faster, but the loop is fine since it's just DB inserts to the queue
-    for (const record of enrollments) {
-      const email = record.student?.user?.email;
-      if (email) {
-        await this.messageQueueService.enqueueNotificationEmail({
-          subject: EmailSubject.RESULT_UPLOAD,
-          email,
-          title: 'New Grades Available',
-          message: `The results for ${courseCode} have been published. Log in to your portal to view your statement of result.`,
-        });
-      }
-    }
   }
+  
       
   
 }

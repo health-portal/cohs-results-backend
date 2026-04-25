@@ -8,11 +8,13 @@ import {
 import { FileCategory, Prisma, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { LecturerProfileRes } from './lecturers.responses';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class LecturersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
@@ -55,6 +57,7 @@ export class LecturersService {
   }
 
   async uploadFileForLecturers(userId: string, file: Express.Multer.File) {
+    await this.filesService.validateFileHeaders(file, FileCategory.LECTURERS);
     const createdFile = await this.prisma.file.create({
       data: {
         filename: file.originalname,

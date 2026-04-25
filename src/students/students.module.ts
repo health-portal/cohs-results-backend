@@ -4,9 +4,10 @@ import { StudentsController } from './students.controller';
 import { StudentController } from './student.controller';
 import { StudentService } from './student.service';
 import { MessageQueueModule } from 'src/message-queue/message-queue.module';
+import { FilesModule } from 'src/files/files.module';
 
 @Module({
-  imports: [MessageQueueModule],
+  imports: [FilesModule, MessageQueueModule],
   controllers: [StudentController, StudentsController],
   providers: [StudentService, StudentsService],
 })

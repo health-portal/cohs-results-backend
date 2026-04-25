@@ -4,11 +4,13 @@ import { CreateStudentBody, UpdateStudentBody } from './students.dto';
 import { FileCategory, UserRole } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { StudentProfileRes } from './students.responses';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class StudentsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
@@ -55,6 +57,7 @@ export class StudentsService {
   }
 
   async uploadFileForStudents(userId: string, file: Express.Multer.File) {
+    await this.filesService.validateFileHeaders(file, FileCategory.STUDENTS);
     const createdFile = await this.prisma.file.create({
       data: {
         filename: file.originalname,

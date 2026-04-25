@@ -15,6 +15,9 @@ export class CreateStudentRes extends CreateStudentBody {
 export class CreateStudentsRes extends ParseCsvData<CreateStudentBody> {
   @ApiProperty({ type: [CreateStudentRes] })
   students: CreateStudentRes[];
+  @ApiProperty() total: number;
+  @ApiProperty() success: number;
+  @ApiProperty() failed: number;
 }
 
 class Result extends PickType(ResultResponse, [

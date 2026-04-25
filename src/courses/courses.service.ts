@@ -4,11 +4,13 @@ import { CreateCourseBody, UpdateCourseBody } from './courses.dto';
 import { FileCategory } from '@prisma/client';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
 import { CourseRes } from './courses.responses';
+import { FilesService } from 'src/files/files.service';
 
 @Injectable()
 export class CoursesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
@@ -33,6 +35,7 @@ export class CoursesService {
   }
 
   async uploadFileForCourses(userId: string, file: Express.Multer.File) {
+    await this.filesService.validateFileHeaders(file, FileCategory.COURSES);
     const createdFile = await this.prisma.file.create({
       data: {
         filename: file.originalname,

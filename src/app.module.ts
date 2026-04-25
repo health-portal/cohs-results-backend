@@ -16,7 +16,7 @@ import { TokensModule } from './tokens/tokens.module';
 import { ApprovalModule } from './approvals/approvals.module';
 import env from './environment';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { ResultsProcessorModule } from './results/resultProcessor.module';
+import { MessageQueueWorkersModule } from './message-queue/message-queue.workers';
 
 @Module({
   imports: [
@@ -36,7 +36,7 @@ import { ResultsProcessorModule } from './results/resultProcessor.module';
     TokensModule,
     ApprovalModule,
     CloudinaryModule,
-    ResultsProcessorModule,
+    // MessageQueueWorkersModule,
   ],
 })
 export class AppModule {}

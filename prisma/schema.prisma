@@ -479,8 +479,8 @@ model ResultUpload {
 
     filename    String
     description String?
-    url         String       // + Cloudinary secure_url
-    publicId    String       // + Cloudinary public_id (needed for deletion)
+    url         String       // Cloudinary secure_url
+    publicId    String       // Cloudinary public_id (needed for deletion)
     mimetype    String
     isProcessed Boolean      @default(false)
     category    FileCategory

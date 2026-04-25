@@ -214,27 +214,40 @@ export class GradingSystemsService {
     },
   ) {
     const scoresToGrade = Object.fromEntries(
-      gradingSystem.fields.map((field) => [
-        field.label,
-        (scores[field.variable] / field.maxValue) * field.weight, // Scale score to weight which is a percentage
-      ]),
+      gradingSystem.fields.map((field) => {
+        const rawScore = parseFloat(scores[field.variable] as any) || 0;
+        const weightedScore = (rawScore / (field.maxValue || 1)) * field.weight;
+        return [field.label, weightedScore];
+      }),
     );
 
-    const total = Object.values(scoresToGrade).reduce(
-      (acc, score) => acc + score,
-      0,
-    );
+    const total = Object.values(scoresToGrade).reduce((acc, score) => acc + score, 0);
 
-    // Extract grade label for score
     const matchedRange = gradingSystem.ranges.find(
       ({ minScore, maxScore }) => total >= minScore && total <= maxScore,
     );
 
-    await this.prisma.result.update({
-      where: { uniqueResult: { enrollmentId, type: ResultType.INITIAL } },
-      data: {
+    await this.prisma.result.upsert({
+      where: { 
+        uniqueResult: { enrollmentId, type: ResultType.INITIAL } 
+      },
+      update: {
         scores,
-        evaluations: { Total: total, Grade: matchedRange },
+        evaluations: { 
+          ...scoresToGrade, // Store individual weighted scores too
+          Total: total, 
+          Grade: matchedRange?.label || 'N/A' 
+        },
+      },
+      create: {
+        enrollmentId,
+        type: ResultType.INITIAL,
+        scores,
+        evaluations: { 
+          ...scoresToGrade, 
+          Total: total, 
+          Grade: matchedRange?.label || 'N/A' 
+        },
       },
     });
   }

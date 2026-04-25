@@ -1,19 +1,21 @@
 import {
+  BadRequestException,
   forwardRef,
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MessageQueueService } from 'src/message-queue/message-queue.service';
-import { FileCategory, UserRole } from '@prisma/client';
+import { ApprovalStatus, DeptResultStatus, FileCategory, UserRole } from '@prisma/client';
 import * as xlsx from 'xlsx';
 import Papa from 'papaparse';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { FileRes } from './files.responses';
-import { ParseFilePayload } from 'src/message-queue/message-queue.dto';
+import { EmailSubject, ParseFilePayload, ProcessResultsPayload } from 'src/message-queue/message-queue.dto';
 import { CreateStudentBody } from 'src/students/students.dto';
 import { GradingSystemsService } from 'src/grading-systems/grading-systems.service';
 import {
@@ -23,10 +25,11 @@ import {
   ProvideAltHeaderMappingsBody,
   RowValidationError,
 } from './files.dto';
-import { CreateCoursesRes } from 'src/courses/courses.responses';
+import { CreateCourseRes, CreateCoursesRes } from 'src/courses/courses.responses';
 import { CreateCourseBody } from 'src/courses/courses.dto';
 import { CreateStudentsRes } from 'src/students/students.responses';
 import {
+  CreateLecturerRes,
   CreateLecturersRes,
   RegisterStudentsRes,
   UploadResultsRes,
@@ -36,6 +39,8 @@ import {
   RegisterStudentBody,
   UploadResultRow,
 } from 'src/lecturers/lecturers.dto';
+import { email } from 'envalid';
+import axios from 'axios';
 
 @Injectable()
 export class FilesService {
@@ -104,6 +109,13 @@ export class FilesService {
 
     const file = await this.prisma.file.findUnique({
       where: { id: fileId },
+      include: {
+        user: {
+          select: {
+            email: true,
+          }
+        }
+      }
     });
     if (!file) {
       this.logger.warn(`File not found for fileId: ${fileId}`);
@@ -111,6 +123,7 @@ export class FilesService {
     }
 
     const metadata = (file.metadata as FileMetadata) ?? {};
+    const summary = { total: 0, success: 0, failed: 0 };
 
     try {
       this.logger.log(
@@ -122,32 +135,33 @@ export class FilesService {
       );
 
       const responses: unknown[] = [];
+      let result: any;
 
       for (const csvContent of csvContents) {
         switch (file.category) {
           case FileCategory.COURSES:
-            this.logger.log(`Handling category: ${FileCategory.COURSES}`);
+            result = this.logger.log(`Handling category: ${FileCategory.COURSES}`);
             responses.push(await this.handleCourses(csvContent, metadata));
             break;
 
           case FileCategory.LECTURERS:
-            this.logger.log(`Handling category: ${FileCategory.LECTURERS}`);
+            result = this.logger.log(`Handling category: ${FileCategory.LECTURERS}`);
             responses.push(await this.handleLecturers(csvContent, metadata));
             break;
 
           case FileCategory.STUDENTS:
             this.logger.log(`Handling category: ${FileCategory.STUDENTS}`);
-            responses.push(await this.handleStudents(csvContent));
+            result = responses.push(await this.handleStudents(csvContent));
             break;
 
           case FileCategory.RESULTS:
             this.logger.log(`Handling category: ${FileCategory.RESULTS}`);
-            responses.push(await this.handleResults(csvContent, metadata));
+            result = responses.push(await this.handleResults(csvContent, metadata));
             break;
 
           case FileCategory.REGISTRATIONS:
             this.logger.log(`Handling category: ${FileCategory.REGISTRATIONS}`);
-            responses.push(
+            result =  responses.push(
               await this.handleRegistrations(csvContent, metadata),
             );
             break;
@@ -156,6 +170,12 @@ export class FilesService {
             this.logger.error(`Invalid file category`);
             throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
         }
+      }
+      if (result) {
+        responses.push(result);
+        summary.total += result.stats.total;
+        summary.success += result.stats.success;
+        summary.failed += result.stats.failed;
       }
 
       await this.prisma.file.update({
@@ -169,6 +189,14 @@ export class FilesService {
         },
       });
       this.logger.log(`File processing completed for fileId: ${fileId}`);
+      await this.messageQueueService.enqueueNotificationEmail({
+      subject: EmailSubject.RESULT_UPLOAD,
+      email: file.user.email,
+      title: "Uploaded file summary",
+      message: `${summary.failed} out of ${summary.total} rows were riddled with errors. Please check the file again`
+    });
+
+    this.logger.log(`Processing complete. ${summary.success}/${summary.total} successful.`);
     } catch (error) {
       this.logger.error(`Failed to parse file ${fileId}: ${error.message}`);
       await this.prisma.file.update({
@@ -183,21 +211,13 @@ export class FilesService {
     }
   }
 
-  private async handleCourses(
-    csv: string,
-    metadata: FileMetadata,
-  ): Promise<CreateCoursesRes> {
-    this.logger.log('Processing courses handle');
+  private async handleCourses(csv: string, metadata: FileMetadata): Promise<CreateCoursesRes> {
     const headerMappings = await this.getHeaderMappings(FileCategory.COURSES);
+    const parsed = this.parseCsv(csv, CreateCourseBody, headerMappings, metadata.altHeaderMappings);
 
-    const parsed = this.parseCsv(
-      csv,
-      CreateCourseBody,
-      headerMappings,
-      metadata.altHeaderMappings,
-    );
-
-    const res: CreateCoursesRes = { courses: [], ...parsed };
+    let successCount = 0;
+    let failedCount = parsed.invalidRows.length;
+    const courses: CreateCourseRes[] = [];
 
     for (const row of parsed.validRows) {
       try {
@@ -211,17 +231,15 @@ export class FilesService {
             units: row.units,
           },
         });
-        this.logger.log(`Course created: ${row.code}`);
-        res.courses.push({ ...row, isCreated: true });
+        successCount++;
+        courses.push({ ...row, isCreated: true });
       } catch (error) {
-        this.logger.error(
-          `Failed to create course ${row.code}: ${error.message}`,
-        );
-        res.courses.push({ ...row, isCreated: false });
+        failedCount++;
+        courses.push({ ...row, isCreated: false });
       }
     }
 
-    return res;
+    return { ...parsed, courses, total: parsed.numberOfRows, success: successCount, failed: failedCount };
   }
 
   private async handleLecturers(
@@ -238,7 +256,10 @@ export class FilesService {
       metadata.altHeaderMappings,
     );
 
-    const res: CreateLecturersRes = { lecturers: [], ...parsed };
+    
+    let successCount = 0;
+    let failedCount = parsed.invalidRows.length; 
+    const lecturers: CreateLecturerRes[] = [];
 
     for (const row of parsed.validRows) {
       try {
@@ -262,33 +283,36 @@ export class FilesService {
 
         await this.messageQueueService.enqueueSetPasswordEmail({
           isActivateAccount: true,
-          tokenPayload: {
-            sub: user.id,
-            email: user.email,
-            role: user.role,
-          },
+          tokenPayload: { sub: user.id, email: user.email, role: user.role },
         });
 
         this.logger.log(`Lecturer created: ${row.email}`);
-        res.lecturers.push({ ...row, isCreated: true });
+        successCount++;
+        lecturers.push({ ...row, isCreated: true });
       } catch (error) {
-        this.logger.error(
-          `Failed to create lecturer ${row.email}: ${error.message}`,
-        );
-        res.lecturers.push({ ...row, isCreated: false });
+        failedCount++;
+        this.logger.error(`Failed to create lecturer ${row.email}: ${error.message}`);
+        lecturers.push({ ...row, isCreated: false });
       }
     }
 
-    return res;
+    
+    return {
+      ...parsed,
+      lecturers,
+      total: parsed.numberOfRows, 
+      success: successCount,
+      failed: failedCount,
+    };
   }
 
   private async handleStudents(csv: string): Promise<CreateStudentsRes> {
-    this.logger.log('Processing students handle');
     const headerMappings = await this.getHeaderMappings(FileCategory.STUDENTS);
-
     const parsed = this.parseCsv(csv, CreateStudentBody, headerMappings);
 
-    const res: CreateStudentsRes = { students: [], ...parsed };
+    let successCount = 0;
+    let failedCount = parsed.invalidRows.length;
+    const students : any[] = [];
 
     for (const row of parsed.validRows) {
       try {
@@ -314,136 +338,80 @@ export class FilesService {
 
         await this.messageQueueService.enqueueSetPasswordEmail({
           isActivateAccount: true,
-          tokenPayload: {
-            sub: user.id,
-            email: user.email,
-            role: user.role,
-          },
+          tokenPayload: { sub: user.id, email: user.email, role: user.role },
         });
 
-        this.logger.log(`Student created: ${row.email} (${row.matricNumber})`);
-        res.students.push({ ...row, isCreated: true });
+        successCount++;
+        students.push({ ...row, isCreated: true });
       } catch (error) {
-        this.logger.error(
-          `Failed to create student ${row.email}: ${error.message}`,
-        );
-        res.students.push({ ...row, isCreated: false });
+        failedCount++;
+        students.push({ ...row, isCreated: false });
       }
     }
 
-    return res;
+    return { ...parsed, students, total: parsed.numberOfRows, success: successCount, failed: failedCount };
   }
+    
+  private async handleResults(csv: string, metadata: FileMetadata): Promise<UploadResultsRes> {
+    if (!metadata.courseSessionId) throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
 
-  private async handleResults(
-    csv: string,
-    metadata: FileMetadata,
-  ): Promise<UploadResultsRes> {
-    this.logger.log(
-      `Processing results handle for courseSession: ${metadata.courseSessionId}`,
-    );
-    if (!metadata.courseSessionId) {
-      this.logger.error(
-        'Missing courseSessionId in metadata for results handle',
-      );
-      throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
-    }
-
-    const headerMappings = await this.getHeaderMappings(
-      FileCategory.RESULTS,
-      metadata.courseSessionId,
-    );
-
+    const headerMappings = await this.getHeaderMappings(FileCategory.RESULTS, metadata.courseSessionId);
     const parsed = this.parseCsv(csv, UploadResultRow, headerMappings);
-    const res: UploadResultsRes = {
-      studentsUploadedFor: [],
-      studentsNotFound: [],
-      ...parsed,
-    };
 
     const courseSession = await this.prisma.courseSession.findUniqueOrThrow({
       where: { id: metadata.courseSessionId },
     });
     const gradingSystem = await this.prisma.gradingSystem.findUniqueOrThrow({
       where: { id: courseSession.gradingSystemId },
-      select: {
-        fields: true,
-        ranges: true,
-      },
+      select: { fields: true, ranges: true },
     });
+
+    let successCount = 0;
+    let failedCount = parsed.invalidRows.length;
+    const studentsUploadedFor : any[] = [];
+    const studentsNotFound: any[] = [];
 
     for (const row of parsed.validRows) {
       try {
         const student = await this.prisma.student.findUniqueOrThrow({
           where: { matricNumber: row.matricNumber },
-          select: { id: true, user: true },
+          select: { id: true },
         });
 
         const enrollment = await this.prisma.enrollment.findUniqueOrThrow({
-          where: {
-            uniqueEnrollment: {
-              studentId: student.id,
-              courseSessionId: metadata.courseSessionId,
-            },
-          },
+          where: { uniqueEnrollment: { studentId: student.id, courseSessionId: metadata.courseSessionId } },
         });
-        await this.gradingSystemService.evaluateFromScores(
-          enrollment.id,
-          row.scores,
-          gradingSystem,
-        );
 
-        this.logger.log(`Results uploaded for student: ${row.matricNumber}`);
-        res.studentsUploadedFor.push(row.matricNumber);
+        await this.gradingSystemService.evaluateFromScores(enrollment.id, row.scores, gradingSystem);
+
+        successCount++;
+        studentsUploadedFor.push(row.matricNumber);
       } catch (error) {
-        this.logger.error(
-          `Failed to upload results for student ${row.matricNumber}: ${error.message}`,
-        );
-        res.studentsNotFound.push(row.matricNumber);
+        failedCount++;
+        studentsNotFound.push(row.matricNumber);
       }
     }
 
-    return res;
+    return { ...parsed, studentsUploadedFor, studentsNotFound, total: parsed.numberOfRows, success: successCount, failed: failedCount };
   }
 
-  private async handleRegistrations(
-    csv: string,
-    metadata: FileMetadata,
-  ): Promise<RegisterStudentsRes> {
-    this.logger.log(
-      `Processing registrations handle for courseSession: ${metadata.courseSessionId}`,
-    );
-    if (!metadata.courseSessionId) {
-      this.logger.error(
-        'Missing courseSessionId in metadata for registrations handle',
-      );
-      throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
-    }
+  private async handleRegistrations(csv: string, metadata: FileMetadata): Promise<RegisterStudentsRes> {
+    if (!metadata.courseSessionId) throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
 
-    const headerMappings = await this.getHeaderMappings(
-      FileCategory.REGISTRATIONS,
-    );
+    const headerMappings = await this.getHeaderMappings(FileCategory.REGISTRATIONS);
+    const parsed = this.parseCsv(csv, RegisterStudentBody, headerMappings, metadata.altHeaderMappings);
 
-    const parsed = this.parseCsv(
-      csv,
-      RegisterStudentBody,
-      headerMappings,
-      metadata.altHeaderMappings,
-    );
-
-    const res: RegisterStudentsRes = {
-      registeredStudents: [],
-      unregisteredStudents: [],
-      ...parsed,
-    };
+    let successCount = 0;
+    let failedCount = parsed.invalidRows.length;
+    const registeredStudents: string[] = [];
+    const unregisteredStudents: string[] = [];
 
     for (const row of parsed.validRows) {
       try {
         const student = await this.prisma.student.findUnique({
           where: { matricNumber: row.matricNumber },
         });
-        if (!student) {
-          throw new Error('Student not found');
-        }
+        if (!student) throw new Error('Student not found');
 
         await this.prisma.enrollment.create({
           data: {
@@ -453,18 +421,17 @@ export class FilesService {
           },
         });
 
-        this.logger.log(`Student registered: ${row.matricNumber}`);
-        res.registeredStudents.push(row.matricNumber);
+        successCount++;
+        registeredStudents.push(row.matricNumber);
       } catch (error) {
-        this.logger.error(
-          `Failed to register student ${row.matricNumber}: ${error.message}`,
-        );
-        res.unregisteredStudents.push(row.matricNumber);
+        failedCount++;
+        unregisteredStudents.push(row.matricNumber);
       }
     }
 
-    return res;
-  }
+    return { ...parsed, registeredStudents, unregisteredStudents, total: parsed.numberOfRows, success: successCount, failed: failedCount };
+  }  
+
 
   private normalizeToCsv(buffer: Buffer, mimetype: string): string[] {
     this.logger.log(`Normalizing content with mimetype: ${mimetype}`);
@@ -498,19 +465,33 @@ export class FilesService {
     const parsed = Papa.parse(csv, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (h) => effectiveHeaders[h] ?? h,
+      transformHeader: (h) => {
+        const trimmedHeader = h.trim(); 
+        return effectiveHeaders[trimmedHeader] ?? trimmedHeader;
+      }
     });
 
     const validRows: T[] = [];
     const invalidRows: RowValidationError[] = [];
 
     parsed.data.forEach((row, index) => {
-      const instance = plainToInstance(cls, row);
+      // const instance = plainToInstance(cls, row);
+      const { matricNumber, ...rest } = row as any;
+
+      const formattedRow = {
+        matricNumber,
+        scores: { ...rest } 
+      };
+      const instance = plainToInstance(cls, formattedRow);
       const errors = validateSync(instance);
 
       if (errors.length) {
         this.logger.warn(
           `Row ${index + 1} failed validation: ${errors.length} errors`,
+        );
+        const details = errors.map(e => Object.values(e.constraints || {})).flat();
+        this.logger.warn(
+          `Row ${index + 1} failed validation: ${details.join(', ')}`,
         );
         invalidRows.push({
           row: index + 1,
@@ -577,26 +558,282 @@ export class FilesService {
         return {
           'Matriculation Number': 'matricNumber',
         };
-
       case FileCategory.RESULTS: {
         this.logger.log(
           `Fetching dynamic grading fields for session: ${courseSessionId}`,
         );
-        const courseSession = await this.prisma.courseSession.findUniqueOrThrow(
-          {
-            where: { id: courseSessionId },
-          },
-        );
+        const courseSession = await this.prisma.courseSession.findUniqueOrThrow({
+          where: { id: courseSessionId },
+        });
 
         const fields = await this.prisma.gradingField.findMany({
           where: { gradingSystemId: courseSession.gradingSystemId },
         });
-        return Object.fromEntries(fields.map((f) => [f.label, f.variable]));
-      }
 
+        const mappings: Record<string, string> = {
+          'Matriculation Number': 'matricNumber',
+        };
+        fields.forEach((f) => {
+          mappings[f.label] = f.variable;
+
+          // Add these specific aliases to match the file headers in your log
+          if (f.variable === 'CA') {
+            mappings['continuousAssessment'] = 'CA';
+          }
+          if (f.variable === 'Exam') {
+            mappings['examination'] = 'Exam';
+          }
+        });
+
+        return mappings; 
+      }
       default:
         this.logger.error(`Could not provide header mappings for category`);
         throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
     }
   }
+
+  
+    async processResultUpload(payload: ProcessResultsPayload): Promise<void> {
+      const { resultUploadId, courseSesnDeptLevelId} = payload;
+  
+      this.logger.log(`Processing ResultUpload ${resultUploadId}`);
+  
+      const resultUpload = await this.prisma.resultUpload.findUnique({
+        where: { id: resultUploadId },
+        include: {
+          courseSesnDeptLevel: true,
+          uploadedBy: {
+            include: {
+              user: {
+                select: {
+                  email: true 
+                }
+              }
+            }
+          },
+          courseSession: {
+            include: {
+              gradingSystem: {
+                include: {
+                  fields: true,
+                  ranges: { orderBy: { minScore: 'desc' } },
+                },
+              },
+            },
+          },
+        },
+      })
+  
+      if (!resultUpload) {
+        throw new NotFoundException(`ResultUpload ${resultUploadId} not found`);
+      }
+  
+      if (resultUpload.isProcessed) {
+        this.logger.log(
+          `ResultUpload ${resultUploadId} already processed — skipping`,
+        );
+        return;
+      }
+      
+      const resultType = resultUpload.resultType;
+  
+      // Verify the approval flow for this dept+level is APPROVED
+      const approvalFlow = await this.prisma.approvalFlow.findUnique({
+        where: {
+          courseSesnDeptLevelId,
+          approvalStatus:     ApprovalStatus.APPROVED,
+        },
+      });
+  
+      if (!approvalFlow) {
+        throw new Error(
+          `Approval flow not yet approved for this dept/level — cannot process`,
+        );
+      }
+  
+      // Download file from Cloudinary
+      const fileBuffer = await this.downloadFile(resultUpload.url);
+      const metadata = (resultUpload.metadata as FileMetadata) ?? {};
+  
+      // Parse rows from Excel or CSV
+      const csvContents = this.normalizeToCsv(
+        Buffer.from(fileBuffer),
+        resultUpload.mimetype,
+      );
+  
+      if (!csvContents.length) {
+        throw new Error(`Result file is empty or unreadable`);
+      }
+  
+      // Resolve grading system
+      const gradingSystem = resultUpload.courseSession.gradingSystem;
+      const courseSessionId = resultUpload.courseSessionId;
+  
+      if (!gradingSystem) {
+        throw new Error(
+          `No grading system found for this course session `,
+        );
+      };
+      let successCount = 0;
+      let failedCount = 0;
+      let totalRows = 0;
+  
+      for (const csvContent of csvContents) {
+
+        const headerMappings = await this.getHeaderMappings(FileCategory.RESULTS, courseSessionId);
+        const parsed = this.parseCsv(csvContent, UploadResultRow, headerMappings);
+        // if (parsed.invalidRows.length > 0) {
+        //   this.logger.warn(
+        //     `Validation errors in ${resultUpload.filename}: ${JSON.stringify(parsed.invalidRows[0].errors)}`
+        //   );
+        // }
+        failedCount += parsed.invalidRows.length;
+        const studentsUploadedFor : any[] = [];
+        const studentsNotFound: any[] = [];
+
+        for (const row of parsed.validRows) {
+          try {
+            const student = await this.prisma.student.findUniqueOrThrow({
+              where: { matricNumber: row.matricNumber },
+              select: { id: true },
+            });
+
+            const enrollment = await this.prisma.enrollment.findUniqueOrThrow({
+              where: { uniqueEnrollment: { studentId: student.id, courseSessionId } },
+            });
+
+            await this.gradingSystemService.evaluateFromScores(enrollment.id, row.scores, gradingSystem);
+            successCount++;
+            studentsUploadedFor.push(row.matricNumber);
+          } catch (error) {
+            failedCount++;
+            this.logger.log(`Error occurred ${error.message}`);
+            studentsNotFound.push(row.matricNumber);
+          }
+        }
+      }
+      
+
+      totalRows = failedCount + successCount;
+      this.logger.log(`File processing completed for file: ${resultUpload.filename}`);
+      await this.messageQueueService.enqueueNotificationEmail({
+      subject: EmailSubject.RESULT_UPLOAD,
+      email: resultUpload.uploadedBy.user.email,
+      title: "Uploaded file summary",
+      message: `${failedCount} out of ${totalRows} rows were riddled with errors. Please check the file again`
+    });
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { courseSessionId: courseSessionId },
+      include: { 
+      student: { include: { user: { select: { email: true } } } },
+      courseSession: { include: { course: { select: {code: true} } }
+      }
+     }
+    });
+    
+    for (const record of enrollments) {
+      const email = record.student?.user?.email;
+      const courseCode = record.courseSession.course.code;
+      if (email) {
+        await this.messageQueueService.enqueueNotificationEmail({
+          subject: EmailSubject.RESULT_UPLOAD,
+          email,
+          title: 'New Grades Available',
+          message: `The results for ${courseCode} have been published. Log in to your portal to view your statement of result.`,
+        });
+      }
+    }
+
+
+    this.logger.log(`Processing complete. ${successCount}/${totalRows} successful.`);
+    
+      await this.prisma.$transaction([
+      this.prisma.resultUpload.update({
+        where: { id: resultUpload.id },
+        data: { isProcessed: true }
+      }),
+      this.prisma.courseSesnDeptAndLevel.update({
+        where: { id: courseSesnDeptLevelId },
+        data: {
+          resultStatus: DeptResultStatus.PUBLISHED,
+          publishedAt: new Date(),
+        },
+      })
+    ]);
+    }
+
+
+    private async downloadFile(url: string): Promise<Buffer> {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      return Buffer.from(response.data);
+    }
+    
+    
+  async validateResultHeaders(file: Express.Multer.File, courseSessionId: string): Promise<void> {
+    const csvString = file.buffer.toString();
+    
+    // Get the required variables from the database (e.g., ['CA', 'Exam'])
+    const courseSession = await this.prisma.courseSession.findUniqueOrThrow({
+      where: { id: courseSessionId },
+      include: { gradingSystem: { include: { fields: true } } }
+    });
+
+    const requiredVariables = courseSession.gradingSystem.fields.map(f => f.variable);
+    const headerMappings = await this.getHeaderMappings(FileCategory.RESULTS, courseSessionId);
+    
+    const result = Papa.parse(csvString, { preview: 1, header: false });
+    const csvHeaders = result.data[0] as string[];
+    
+    const transformedHeaders = csvHeaders.map(h => headerMappings[h.trim()] || h.trim());
+
+    const missingFields = requiredVariables.filter(v => !transformedHeaders.includes(v));
+
+    if (missingFields.length > 0) {
+      throw new BadRequestException(
+        `Invalid CSV headers. Missing columns for: ${missingFields.join(', ')}. ` +
+        `Ensure your headers match the expected mapping.`
+      );
+    }
+    
+    // Also check for Matriculation Number
+    if (!transformedHeaders.includes('matricNumber')) {
+      throw new BadRequestException("CSV is missing 'Matriculation Number' column.");
+    }
+  }
+
+  async validateFileHeaders(
+    file: Express.Multer.File,
+    category: FileCategory,
+    courseSessionId?: string,
+  ): Promise<void> {
+    const csvString = file.buffer.toString();
+    const mappings = await this.getHeaderMappings(category, courseSessionId);
+    
+    // Parse just the first row
+    const result = Papa.parse(csvString, { preview: 1, header: false });
+    if (!result.data || result.data.length === 0) {
+      throw new BadRequestException('The uploaded file is empty.');
+    }
+
+    const csvHeaders = (result.data[0] as string[]).map((h) => h.trim());
+    const mappedHeaders = Object.keys(mappings);
+
+    // Identify which required headers are missing from the CSV
+    const missingHeaders = mappedHeaders.filter(
+      (required) => !csvHeaders.includes(required)
+    );
+
+    if (missingHeaders.length > 0) {
+      throw new BadRequestException(
+        `Invalid CSV structure for ${category}. Missing columns: ${missingHeaders.join(', ')}`
+      );
+    }
+  }
+
+
+
+
 }
+

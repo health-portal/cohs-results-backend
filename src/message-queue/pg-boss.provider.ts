@@ -6,7 +6,7 @@ import env from 'src/environment';
 export const PgBossProvider: Provider = {
   provide: 'PG_BOSS',
   useFactory: async () => {
-    const boss = new PgBoss(env.DATABASE_URL);
+    const boss = new PgBoss(env.PGBOSS_URL);
     await boss.start();
 
     const queues = await boss.getQueues();
