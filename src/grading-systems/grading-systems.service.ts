@@ -6,7 +6,7 @@ import {
   UpsertGradingRangeBody,
 } from './grading-systems.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { GradingField, GradingRange, ResultType } from '@prisma/client';
+import { EnrollmentStatus, GradingField, GradingRange, ResultType } from '@prisma/client';
 import * as changeCase from 'change-case';
 import {
   GradingFieldRes,
@@ -211,6 +211,7 @@ export class GradingSystemsService {
     gradingSystem: {
       fields: GradingField[];
       ranges: GradingRange[];
+      threshold: number;
     },
   ) {
     const scoresToGrade = Object.fromEntries(
@@ -227,16 +228,22 @@ export class GradingSystemsService {
       ({ minScore, maxScore }) => total >= minScore && total <= maxScore,
     );
 
-    await this.prisma.result.upsert({
+  // Determine status based on the threshold
+  const newStatus = total >= gradingSystem.threshold 
+    ? EnrollmentStatus.PASSED 
+    : EnrollmentStatus.FAILED;
+    return await this.prisma.$transaction(async (tx) => {
+    // 1. Save the Result
+    const result = await tx.result.upsert({
       where: { 
         uniqueResult: { enrollmentId, type: ResultType.INITIAL } 
       },
       update: {
         scores,
         evaluations: { 
-          ...scoresToGrade, // Store individual weighted scores too
+          ...scoresToGrade, 
           Total: total, 
-          Grade: matchedRange?.label || 'N/A' 
+          Grade: matchedRange?.label || 'F' 
         },
       },
       create: {
@@ -246,9 +253,16 @@ export class GradingSystemsService {
         evaluations: { 
           ...scoresToGrade, 
           Total: total, 
-          Grade: matchedRange?.label || 'N/A' 
+          Grade: matchedRange?.label || 'F' 
         },
       },
     });
+    await tx.enrollment.update({
+      where: { id: enrollmentId },
+      data: { status: newStatus }
+    });
+
+    return result;
+  });
   }
 }

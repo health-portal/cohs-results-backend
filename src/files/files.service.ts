@@ -363,7 +363,7 @@ export class FilesService {
     });
     const gradingSystem = await this.prisma.gradingSystem.findUniqueOrThrow({
       where: { id: courseSession.gradingSystemId },
-      select: { fields: true, ranges: true },
+      select: { fields: true, ranges: true, threshold: true },
     });
 
     let successCount = 0;
