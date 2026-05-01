@@ -32,8 +32,8 @@ import { StudentProfileRes } from './students.responses';
 @ApiTags('student', 'Student')
 @ApiBearerAuth('accessToken')
 @Controller('student')
-// @AuthRoles([UserRole.STUDENT])
-// @UseGuards(JwtAuthGuard, UserRoleGuard)
+@AuthRoles([UserRole.STUDENT])
+@UseGuards(JwtAuthGuard, UserRoleGuard)
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}
 
@@ -66,14 +66,12 @@ export class StudentController {
   @ApiNotFoundResponse({ description: 'Enrollment not found' })
   @Get('enrollments/:enrollmentId')
   async listEnrollment(
-    // @User() user: UserPayload,
+    @User() user: UserPayload,
     @Param('enrollmentId', ParseUUIDPipe) enrollmentId: string,
   ) {
-    // const studentData = user.userData as StudentData;
-    const studentId = "e21cc5cd-03f5-4a41-9cda-16f5bb33675d";
+    const studentData = user.userData as StudentData;
     return await this.studentService.listEnrollment(
-      // studentData.studentId,
-      studentId,
+      studentData.studentId,
       enrollmentId,
     );
   }
