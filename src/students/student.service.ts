@@ -37,6 +37,15 @@ export class StudentService {
         status: true,
         levelAtEnrollment: true,
         results: { select: { type: true, scores: true, evaluations: true } },
+        courseSession: {
+          select: {
+            course: {
+              select: {
+                code: true, title: true, units: true,
+              }
+            }
+          }
+        }
       },
     });
 
