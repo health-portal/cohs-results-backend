@@ -86,6 +86,7 @@ export class StudentsController {
     )
     file: Express.Multer.File,
   ) {
+    // const userId = "cd910b76-aa5a-46ad-b3f1-6e54a3218ce6";
     return await this.studentsService.uploadFileForStudents(userId, file);
   }
 

@@ -49,7 +49,7 @@ export class ApprovalManager {
 
     const offeringDeptId = junction.courseSession.course.departmentId;
     const takingDeptId = junction.departmentId;
-    const courseType = offeringDeptId === takingDeptId ? 'INTRA' : 'INTER';
+    const courseType = offeringDeptId === takingDeptId ? CourseType.INTRA : CourseType.INTER;
 
     // 2. Resolve Template/Steps
     const template = await this.resolver.resolveActiveTemplate(
@@ -69,6 +69,7 @@ export class ApprovalManager {
           courseSesnDeptLevel: { connect: { id: courseSesnDeptLevelId } },
           lecturer: { connect: { id: lecturerId } },
           approvalStatus: ApprovalStatus.REQUESTED,
+          courseType
         },
       });
 

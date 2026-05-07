@@ -117,4 +117,84 @@ export class StudentService {
       email: student.user.email,
     };
   }
+
+  async getStudentSessionsWithResults(studentId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: { admissionYear: true },
+    });
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        studentId,
+        courseSession: {
+          session: {
+            academicYear: { gte: student?.admissionYear },
+          },
+        },
+      },
+      include: {
+        results: true,
+        courseSession: {
+          include: {
+            course: {
+              select: {
+                code: true,
+                title: true,
+                units: true,
+                semester: true,
+              },
+            },
+            session: {
+              select: {
+                id: true,
+                academicYear: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  
+
+    // Group by session then by semester
+    const sessionMap = new Map<string, any>();
+
+    for (const enrollment of enrollments) {
+      const { session, course } = enrollment.courseSession;
+      const { academicYear, id: sessionId } = session;
+
+      if (!sessionMap.has(sessionId)) {
+        sessionMap.set(sessionId, {
+          sessionId,
+          academicYear,
+          semesters: new Map<string, any[]>(),
+        });
+      }
+
+      const sessionEntry = sessionMap.get(sessionId);
+
+      if (!sessionEntry.semesters.has(course.semester)) {
+        sessionEntry.semesters.set(course.semester, []);
+      }
+
+      sessionEntry.semesters.get(course.semester).push({
+        course,
+        results: enrollment.results,
+      });
+    }
+
+    // Convert maps to arrays
+    return Array.from(sessionMap.values())
+      .map((s) => ({
+        sessionId: s.sessionId,
+        academicYear: s.academicYear,
+        semesters: Array.from(s.semesters.entries()).map(([semester, enrollments]) => ({
+          semester,
+          enrollments,
+        })),
+      }))
+      .sort((a, b) => a.academicYear.localeCompare(b.academicYear));
+  }
+
 }

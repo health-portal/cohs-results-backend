@@ -28,6 +28,7 @@ import {
 } from '@nestjs/swagger';
 import { EnrollmentRes } from 'src/lecturers/lecturers.responses';
 import { StudentProfileRes } from './students.responses';
+import { GET_STUDENT_SESSIONS_EXAMPLE } from './student.examples';
 
 @ApiTags('student', 'Student')
 @ApiBearerAuth('accessToken')
@@ -70,6 +71,7 @@ export class StudentController {
     @Param('enrollmentId', ParseUUIDPipe) enrollmentId: string,
   ) {
     const studentData = user.userData as StudentData;
+    // const studentId = "e21cc5cd-03f5-4a41-9cda-16f5bb33675d";
     return await this.studentService.listEnrollment(
       studentData.studentId,
       enrollmentId,
@@ -83,4 +85,20 @@ export class StudentController {
     const studentData = user.userData as StudentData;
     return await this.studentService.getProfile(studentData.studentId);
   }
+
+  
+  @ApiOperation({ summary: 'Get student sessions with results' })
+  @ApiOkResponse({
+    example: GET_STUDENT_SESSIONS_EXAMPLE
+  })
+  @ApiBadRequestResponse({ description: '' })
+  @Get('sessions')
+  async getSessionsWithResults(
+    // @User() user: UserPayload
+  ) {
+    // const studentData = user.userData as StudentData;
+    const studentId = "e21cc5cd-03f5-4a41-9cda-16f5bb33675d";
+    return this.studentService.getStudentSessionsWithResults(studentId);
+  }
+
 }

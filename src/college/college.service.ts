@@ -52,6 +52,7 @@ export class CollegeService {
     shortName,
     maxLevel,
   }: CreateDepartmentBody) {
+    name = name.toLowerCase();
     await this.prisma.department.create({
       data: { facultyId, name, shortName, maxLevel },
     });

@@ -140,32 +140,34 @@ export class FilesService {
       for (const csvContent of csvContents) {
         switch (file.category) {
           case FileCategory.COURSES:
-            result = this.logger.log(`Handling category: ${FileCategory.COURSES}`);
-            responses.push(await this.handleCourses(csvContent, metadata));
+            this.logger.log(`Handling category: ${FileCategory.COURSES}`);
+            result = await this.handleCourses(csvContent, metadata);
+            responses.push(result);
             break;
 
           case FileCategory.LECTURERS:
-            result = this.logger.log(`Handling category: ${FileCategory.LECTURERS}`);
-            responses.push(await this.handleLecturers(csvContent, metadata));
+            this.logger.log(`Handling category: ${FileCategory.LECTURERS}`);
+            result = await this.handleLecturers(csvContent, metadata);
+            responses.push(result);
             break;
 
           case FileCategory.STUDENTS:
             this.logger.log(`Handling category: ${FileCategory.STUDENTS}`);
-            result = responses.push(await this.handleStudents(csvContent));
+            result = await this.handleStudents(csvContent);
+            responses.push(result);
             break;
 
           case FileCategory.RESULTS:
             this.logger.log(`Handling category: ${FileCategory.RESULTS}`);
-            result = responses.push(await this.handleResults(csvContent, metadata));
+            result = await this.handleResults(csvContent, metadata);
+            responses.push(result);
             break;
 
           case FileCategory.REGISTRATIONS:
             this.logger.log(`Handling category: ${FileCategory.REGISTRATIONS}`);
-            result =  responses.push(
-              await this.handleRegistrations(csvContent, metadata),
-            );
+            result = await this.handleRegistrations(csvContent, metadata);
+            responses.push(result);
             break;
-
           default:
             this.logger.error(`Invalid file category`);
             throw new Error(FileErrorMessage.INVALID_FILE_METADATA);
@@ -173,9 +175,9 @@ export class FilesService {
       }
       if (result) {
         responses.push(result);
-        summary.total += result.stats.total;
-        summary.success += result.stats.success;
-        summary.failed += result.stats.failed;
+        summary.total += result.total;
+        summary.success += result.success;
+        summary.failed += result.failed;
       }
 
       await this.prisma.file.update({
@@ -214,27 +216,30 @@ export class FilesService {
   private async handleCourses(csv: string, metadata: FileMetadata): Promise<CreateCoursesRes> {
     const headerMappings = await this.getHeaderMappings(FileCategory.COURSES);
     const parsed = this.parseCsv(csv, CreateCourseBody, headerMappings, metadata.altHeaderMappings);
-
+    // console.log(parsed);
     let successCount = 0;
     let failedCount = parsed.invalidRows.length;
     const courses: CreateCourseRes[] = [];
 
     for (const row of parsed.validRows) {
+      // console.log(row);
       try {
         await this.prisma.course.create({
           data: {
             code: row.code,
             title: row.title,
             description: row.description,
-            department: { connect: { name: row.department } },
+            department: { connect: { name: row.department.trim().toLowerCase() } },
             semester: row.semester,
             units: row.units,
           },
         });
+        console.log("Successfully finished rows");
         successCount++;
         courses.push({ ...row, isCreated: true });
       } catch (error) {
         failedCount++;
+        console.log("failed!")
         courses.push({ ...row, isCreated: false });
       }
     }
@@ -275,7 +280,7 @@ export class FilesService {
                 phone: row.phone,
                 title: row.title,
                 gender: row.gender,
-                department: { connect: { name: row.department } },
+                department: { connect: { name: row.department.trim().toLowerCase() } },
               },
             },
           },
@@ -309,12 +314,14 @@ export class FilesService {
   private async handleStudents(csv: string): Promise<CreateStudentsRes> {
     const headerMappings = await this.getHeaderMappings(FileCategory.STUDENTS);
     const parsed = this.parseCsv(csv, CreateStudentBody, headerMappings);
+    // console.log('Raw headers from CSV:', Object.keys(parsed ?? {}));
 
     let successCount = 0;
     let failedCount = parsed.invalidRows.length;
     const students : any[] = [];
 
     for (const row of parsed.validRows) {
+      // console.log(row);
       try {
         const user = await this.prisma.user.create({
           data: {
@@ -327,7 +334,7 @@ export class FilesService {
                 otherName: row.otherName,
                 matricNumber: row.matricNumber,
                 admissionYear: row.admissionYear,
-                department: { connect: { name: row.department } },
+                department: { connect: { name: row.department.toLowerCase() } },
                 degree: row.degree,
                 level: row.level,
                 gender: row.gender,
@@ -435,6 +442,8 @@ export class FilesService {
 
   private normalizeToCsv(buffer: Buffer, mimetype: string): string[] {
     this.logger.log(`Normalizing content with mimetype: ${mimetype}`);
+    // this.logger.log(`File mimetype: ${mimetype}`);
+    // this.logger.log(`Buffer start: ${buffer.slice(0, 200).toString()}`);
     if (mimetype.includes('csv') || mimetype === 'text/plain') {
       return [buffer.toString('utf-8')];
     }
@@ -458,30 +467,30 @@ export class FilesService {
     cls: new () => T,
     headerMappings: Record<string, string>,
     altHeaderMappings?: Record<string, string>,
+    transformRow?: (row: Record<string, any>) => Record<string, any>,
   ): ParseCsvData<T> {
-    const effectiveHeaders = altHeaderMappings ?? headerMappings;
-    this.logger.log('Starting PapaParse operation');
+   const effectiveHeaders = altHeaderMappings ?? headerMappings;
+  //  console.log('Normalized headers map:', effectiveHeaders);
 
-    const parsed = Papa.parse(csv, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (h) => {
-        const trimmedHeader = h.trim(); 
-        return effectiveHeaders[trimmedHeader] ?? trimmedHeader;
-      }
-    });
+  const parsed = Papa.parse(csv, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => {
+      const trimmed = h.trim();
+      // console.log('CSV header raw:', JSON.stringify(trimmed));
+      return effectiveHeaders[trimmed] ?? trimmed;
+    }
+  });
 
     const validRows: T[] = [];
     const invalidRows: RowValidationError[] = [];
 
     parsed.data.forEach((row, index) => {
       // const instance = plainToInstance(cls, row);
-      const { matricNumber, ...rest } = row as any;
+     
+      // const instance = plainToInstance(cls, row);
 
-      const formattedRow = {
-        matricNumber,
-        scores: { ...rest } 
-      };
+      const formattedRow = transformRow ? transformRow(row as any) : row;
       const instance = plainToInstance(cls, formattedRow);
       const errors = validateSync(instance);
 
@@ -682,12 +691,10 @@ export class FilesService {
       for (const csvContent of csvContents) {
 
         const headerMappings = await this.getHeaderMappings(FileCategory.RESULTS, courseSessionId);
-        const parsed = this.parseCsv(csvContent, UploadResultRow, headerMappings);
-        // if (parsed.invalidRows.length > 0) {
-        //   this.logger.warn(
-        //     `Validation errors in ${resultUpload.filename}: ${JSON.stringify(parsed.invalidRows[0].errors)}`
-        //   );
-        // }
+        const parsed = this.parseCsv(csvContent, UploadResultRow, headerMappings, undefined, (row) => {
+          const { matricNumber, ...rest } = row;
+          return { matricNumber, scores: rest };
+        });
         failedCount += parsed.invalidRows.length;
         const studentsUploadedFor : any[] = [];
         const studentsNotFound: any[] = [];
@@ -824,6 +831,9 @@ export class FilesService {
     const missingHeaders = mappedHeaders.filter(
       (required) => !csvHeaders.includes(required)
     );
+    // console.log(missingHeaders);
+  //   console.log('CSV headers raw:', JSON.stringify(result.data[0]));
+  // console.log('Mapped headers:', JSON.stringify(mappedHeaders));
 
     if (missingHeaders.length > 0) {
       throw new BadRequestException(

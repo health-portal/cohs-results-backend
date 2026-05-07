@@ -126,6 +126,8 @@ export class LecturerController {
     file: Express.Multer.File,
   ) {
     const lecturerId = this.getLecturerId(user);
+    // const userSub = "f68d8bdb-8201-4e34-89b6-4bdf448c6242";
+    // const lecturerId = "a49a1cee-6042-4c2d-b048-0520133292c3"
     return await this.lecturerService.uploadFileForStudentRegistrations(
       user.sub,
       lecturerId,
@@ -133,24 +135,6 @@ export class LecturerController {
       file,
     );
   }
-
-  // @UseInterceptors(FileInterceptor('file'))
-  // @ApiConsumes('multipart/form-data')
-  // @ApiOperation({ summary: 'Upload a file for student results' })
-  // @ApiBody({
-  //   schema: {
-  //     type: 'object',
-  //     properties: {
-  //       file: {
-  //         type: 'string',
-  //         format: 'binary',
-  //       },
-  //     },
-  //   },
-  // })
-  // @Post('courses-sessions/:courseSessionId/results')
-  
-
 
   @ApiOperation({ summary: "Edit a student's score in a course session" })
   @ApiBody({ type: EditResultBody })
@@ -186,21 +170,6 @@ export class LecturerController {
       courseSessionId,
     );
   }
-
-  // @ApiOperation({ summary: 'View results for a course session' })
-  // @ApiOkResponse({ type: [EnrollmentWithResultRes] })
-  // @ApiNotFoundResponse({ description: 'Course session not found' })
-  // @Get('courses-sessions/:courseSessionId/results')
-  // async listCourseResults(
-  //   @User() user: UserPayload,
-  //   @Param('courseSessionId', ParseUUIDPipe) courseSessionId: string,
-  // ) {
-  //   const lecturerId = this.getLecturerId(user);
-  //   return await this.lecturerService.listCourseResults(
-  //     lecturerId,
-  //     courseSessionId,
-  //   );
-  // }
 
   @ApiOperation({ summary: 'Get lecturer profile' })
   @ApiOkResponse({ type: LecturerProfileRes })

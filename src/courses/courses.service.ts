@@ -27,7 +27,7 @@ export class CoursesService {
         code,
         title,
         description,
-        department: { connect: { name: department } },
+        department: { connect: { name: department.trim().toLowerCase() } },
         semester,
         units,
       },

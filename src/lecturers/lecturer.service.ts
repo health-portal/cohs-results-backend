@@ -33,14 +33,16 @@ export class LecturerService {
     const courseLecturer = await this.prisma.courseLecturer.findUnique({
       where: {
         uniqueCourseSessionLecturer: { courseSessionId, lecturerId },
-        isCoordinator: isCoordinator ? true : undefined,
       },
     });
 
-    if (!courseLecturer)
-      throw new ForbiddenException(
-        'You are not authorized to carry out this operation',
-      );
+    if (!courseLecturer) {
+      throw new ForbiddenException('You are not authorized to carry out this operationnnnnn');
+    }
+
+    if (isCoordinator && !courseLecturer.isCoordinator) {
+      throw new ForbiddenException('You are not authorized to carry out this operation');
+    }
   }
 
   // async listCourseSessions(
@@ -156,8 +158,8 @@ async getLecturerCourseSessions(lecturerId: string) {
     courseSessionId: string,
     file: Express.Multer.File,
   ) {
-    await this.validateCourseLecturerAccess(lecturerId, userId, true);
-    await this.filesService.validateFileHeaders(file, FileCategory.STUDENTS);
+    await this.validateCourseLecturerAccess(lecturerId, courseSessionId, true);
+    await this.filesService.validateFileHeaders(file, FileCategory.REGISTRATIONS);
     const createdFile = await this.prisma.file.create({
       data: {
         filename: file.originalname,
@@ -195,6 +197,8 @@ async getLecturerCourseSessions(lecturerId: string) {
         `Course Session, Department, And Level ${courseSesnDeptLevelId} not found`,
       );
     }
+    
+    await this.validateCourseLecturerAccess(lecturerId, deptLevel.courseSessionId, true);
     await this.filesService.validateResultHeaders(file, deptLevel.courseSessionId);
 
     const existing = await this.prisma.resultUpload.findUnique({
