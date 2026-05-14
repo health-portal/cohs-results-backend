@@ -93,6 +93,7 @@ export class LecturerController {
 
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Students registered successfully' })
   @ApiOperation({ summary: 'Upload a file for student registrations' })
   @ApiBody({
     schema: {
@@ -187,6 +188,7 @@ export class LecturerController {
       'Lecturer uploads a result file for a specific dept+level in a course session. ' +
       'Triggers the approval pipeline automatically. Safe to call again on re-upload.',
   })
+  @ApiOkResponse({ description: 'Result uploaded successfully.Approval Pipeline activated' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

@@ -55,6 +55,7 @@ export class StudentsController {
 
   @ApiOperation({ summary: 'Create students via a file' })
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOkResponse({ description: 'Students created successfully' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
