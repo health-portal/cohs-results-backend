@@ -36,7 +36,7 @@ import { MessageQueueWorkersModule } from './message-queue/message-queue.workers
     TokensModule,
     ApprovalModule,
     CloudinaryModule,
-    // MessageQueueWorkersModule,
+    MessageQueueWorkersModule,
   ],
 })
 export class AppModule {}

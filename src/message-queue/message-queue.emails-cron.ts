@@ -1,11 +1,12 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PgBoss } from 'pg-boss';
+import { Worker } from 'bullmq';
 import { createClient } from 'smtpexpress';
 import { QueueTable, SendEmailPayload } from './message-queue.dto';
 import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { PgBossProvider } from './pg-boss.provider';
+import { RedisProvider } from './redis.provider';
+import Redis from 'ioredis';
 import env from 'src/environment';
 
 @Module({
@@ -14,60 +15,45 @@ import env from 'src/environment';
     PrismaModule,
     TokensModule,
   ],
-  providers: [PgBossProvider],
+  providers: [RedisProvider],
 })
 export class MessageQueueEmailsCronModule
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly emailClient: ReturnType<typeof createClient>;
+  private worker: Worker;
 
-  constructor(@Inject('PG_BOSS') private readonly boss: PgBoss) {
+  constructor(@Inject('REDIS') private readonly redis: Redis) {
     this.emailClient = createClient({
-      projectId: env.SMTPEXPRESS_PROJECT_ID,
+      projectId:     env.SMTPEXPRESS_PROJECT_ID,
       projectSecret: env.SMTPEXPRESS_PROJECT_SECRET,
     });
   }
 
   async onModuleInit() {
-    await this.processEmailCron();
-  }
-
-  async onModuleDestroy() {
-    await this.boss.stop();
-  }
-
-  private async processEmailCron() {
-    const MAX_RUNTIME_MS = 60 * 1000;
-    const start = Date.now();
-
-    let processed = 0;
-
-    while (true) {
-      if (Date.now() - start > MAX_RUNTIME_MS) {
-        console.warn('[EMAIL] Max runtime reached, stopping');
-        break;
-      }
-      const jobs = await this.boss.fetch(QueueTable.EMAILS, {
-        batchSize: 3,
-      });
-      if (!jobs || jobs.length === 0) break;
-
-      for (const job of jobs) {
+    this.worker = new Worker(
+      QueueTable.EMAILS,
+      async (job) => {
         const { content, toEmail, subject } = job.data as SendEmailPayload;
         await this.emailClient.sendApi.sendMail({
           subject,
           message: content,
           sender: {
-            name: 'Obafemi Awolowo University - College of Health Sciences',
+            name:  'Obafemi Awolowo University - College of Health Sciences',
             email: env.SMTPEXPRESS_SENDER_EMAIL,
           },
           recipients: [toEmail],
         });
+        console.log(`[EMAIL CRON] Sent email to ${toEmail}`);
+      },
+      {
+        connection:  this.redis,
+        concurrency: 3,
+      },
+    );
+  }
 
-        processed++;
-      }
-    }
-
-    console.log(`[EMAIL] Processed ${processed} jobs`);
+  async onModuleDestroy() {
+    await this.worker.close();
   }
 }

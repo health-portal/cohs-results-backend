@@ -1,12 +1,13 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PgBoss } from 'pg-boss';
+import { Queue, Worker } from 'bullmq';
 import { ParseFilePayload, QueueTable } from './message-queue.dto';
 import { FilesModule } from 'src/files/files.module';
 import { FilesService } from 'src/files/files.service';
 import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { PgBossProvider } from './pg-boss.provider';
+import { RedisProvider } from './redis.provider';
+import Redis from 'ioredis';
 import env from 'src/environment';
 
 @Module({
@@ -16,48 +17,34 @@ import env from 'src/environment';
     PrismaModule,
     TokensModule,
   ],
-  providers: [PgBossProvider],
+  providers: [RedisProvider],
 })
 export class MessageQueueFilesCronModule
   implements OnModuleInit, OnModuleDestroy
 {
+  private worker: Worker;
+
   constructor(
     private readonly filesService: FilesService,
-    @Inject('PG_BOSS') private readonly boss: PgBoss,
+    @Inject('REDIS') private readonly redis: Redis,
   ) {}
 
   async onModuleInit() {
-    await this.processFileCron();
+    this.worker = new Worker(
+      QueueTable.FILES,
+      async (job) => {
+        const payload = job.data as ParseFilePayload;
+        await this.filesService.parseFile(payload);
+        console.log(`[FILE CRON] Processed job ${job.id}`);
+      },
+      {
+        connection: this.redis,
+        concurrency: 1,
+      },
+    );
   }
 
   async onModuleDestroy() {
-    await this.boss.stop();
-  }
-
-  private async processFileCron() {
-    const MAX_RUNTIME_MS = 4 * 60 * 1000;
-    const start = Date.now();
-
-    let processed = 0;
-
-    while (true) {
-      if (Date.now() - start > MAX_RUNTIME_MS) {
-        console.warn('[FILE] Max runtime reached, stopping');
-        break;
-      }
-      const jobs = await this.boss.fetch(QueueTable.FILES, {
-        batchSize: 1,
-      });
-      if (!jobs || jobs.length === 0) break;
-
-      for (const job of jobs) {
-        const payload = job.data as ParseFilePayload;
-        await this.filesService.parseFile(payload);
-
-        processed++;
-      }
-    }
-
-    console.log(`[FILE] Processed ${processed} jobs`);
+    await this.worker.close();
   }
 }

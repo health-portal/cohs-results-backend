@@ -314,7 +314,7 @@ export class FilesService {
   private async handleStudents(csv: string): Promise<CreateStudentsRes> {
     const headerMappings = await this.getHeaderMappings(FileCategory.STUDENTS);
     const parsed = this.parseCsv(csv, CreateStudentBody, headerMappings);
-    // console.log('Raw headers from CSV:', Object.keys(parsed ?? {}));
+    console.log('Raw headers from CSV:', Object.keys(parsed ?? {}));
 
     let successCount = 0;
     let failedCount = parsed.invalidRows.length;
@@ -470,14 +470,14 @@ export class FilesService {
     transformRow?: (row: Record<string, any>) => Record<string, any>,
   ): ParseCsvData<T> {
    const effectiveHeaders = altHeaderMappings ?? headerMappings;
-  //  console.log('Normalized headers map:', effectiveHeaders);
+   console.log('Normalized headers map:', effectiveHeaders);
 
   const parsed = Papa.parse(csv, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (h) => {
       const trimmed = h.trim();
-      // console.log('CSV header raw:', JSON.stringify(trimmed));
+      console.log('CSV header raw:', JSON.stringify(trimmed));
       return effectiveHeaders[trimmed] ?? trimmed;
     }
   });

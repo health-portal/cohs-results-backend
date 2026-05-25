@@ -1,5 +1,5 @@
 import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PgBoss } from 'pg-boss';
+import { Worker } from 'bullmq';
 import { createClient } from 'smtpexpress';
 import {
   ParseFilePayload,
@@ -11,9 +11,10 @@ import { FilesModule } from 'src/files/files.module';
 import { FilesService } from 'src/files/files.service';
 import { JwtModule } from '@nestjs/jwt';
 import { TokensModule } from 'src/tokens/tokens.module';
-import { PrismaModule } from 'src/prisma/prisma.module';
-import { PgBossProvider } from './pg-boss.provider';
+import { RedisProvider } from './redis.provider';
+import Redis from 'ioredis';
 import env from 'src/environment';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -22,67 +23,109 @@ import env from 'src/environment';
     PrismaModule,
     TokensModule,
   ],
-  providers: [PgBossProvider],
+  providers: [RedisProvider],
 })
 export class MessageQueueWorkersModule
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly emailClient: ReturnType<typeof createClient>;
+  private workers: Worker[] = [];
 
   constructor(
     private readonly filesService: FilesService,
-    @Inject('PG_BOSS') private readonly boss: PgBoss,
+    @Inject('REDIS') private readonly redis: Redis,
   ) {
     this.emailClient = createClient({
-      projectId: env.SMTPEXPRESS_PROJECT_ID,
+      projectId:     env.SMTPEXPRESS_PROJECT_ID,
       projectSecret: env.SMTPEXPRESS_PROJECT_SECRET,
     });
   }
 
   async onModuleInit() {
-    await this.boss.start();
-    await this.processEmail();
-    await this.processFile();
-    await this.processResults(); 
+    this.workers = [
+      this.createEmailWorker(),
+      this.createFileWorker(),
+      this.createResultsWorker(),
+    ];
   }
 
   async onModuleDestroy() {
-    await this.boss.stop();
+    await Promise.all(this.workers.map((w) => w.close()));
   }
 
-  private async processEmail() {
-    await this.boss.work(QueueTable.EMAILS, async ([job]) => {
-      const { content, toEmail, subject } = job.data as SendEmailPayload;
-      await this.emailClient.sendApi.sendMail({
-        subject,
-        message: content,
-        sender: {
-          name: 'Obafemi Awolowo University - College of Health Sciences',
-          email: env.SMTPEXPRESS_SENDER_EMAIL,
-        },
-        recipients: [toEmail],
-      });
-    });
+  // ============================================================
+  // EMAIL WORKER
+  // ============================================================
+
+  private createEmailWorker(): Worker {
+    return new Worker(
+      QueueTable.EMAILS,
+      async (job) => {
+        const { content, toEmail, subject } = job.data as SendEmailPayload;
+        await this.emailClient.sendApi.sendMail({
+          subject,
+          message: content,
+          sender: {
+            name:  'Obafemi Awolowo University - College of Health Sciences',
+            email: env.SMTPEXPRESS_SENDER_EMAIL,
+          },
+          recipients: [toEmail],
+        });
+      },
+      {
+        connection: this.redis,
+        concurrency: 3,
+      },
+    );
   }
 
-  private async processFile() {
-    await this.boss.work(QueueTable.FILES, async ([job]) => {
-      const payload = job.data as ParseFilePayload;
-    console.log(`[WORKER] Received Job ID: ${job.id} with File ID:`);
-    
-    try {
-      await this.filesService.parseFile(payload);
-      console.log(`[WORKER] Job ${job.id} finished successfully.`);
-    } catch (err) {
-      console.error(`[WORKER] Job ${job.id} failed: ${err.message}`);
-      throw err; 
-    }
-    });
+  // ============================================================
+  // FILE WORKER
+  // ============================================================
+
+  private createFileWorker(): Worker {
+    return new Worker(
+      QueueTable.FILES,
+      async (job) => {
+        const payload = job.data as ParseFilePayload;
+        console.log(`[FILE WORKER] Processing job ${job.id}`);
+        try {
+          await this.filesService.parseFile(payload);
+          console.log(`[FILE WORKER] Job ${job.id} completed`);
+        } catch (err) {
+          console.error(`[FILE WORKER] Job ${job.id} failed: ${err.message}`);
+          throw err;
+        }
+      },
+      {
+        connection: this.redis,
+        concurrency: 1,
+      },
+    );
   }
-  private async processResults() {
-    await this.boss.work(QueueTable.PROCESS_RESULTS, async ([job]) => {
-      const payload = job.data as ProcessResultsPayload;
-      await this.filesService.processResultUpload(payload);
-    });
+
+  // ============================================================
+  // RESULTS WORKER
+  // ============================================================
+
+  private createResultsWorker(): Worker {
+    return new Worker(
+      QueueTable.PROCESS_RESULTS,
+      async (job) => {
+        const payload = job.data as ProcessResultsPayload;
+        console.log(`[RESULTS WORKER] Processing job ${job.id}`);
+        try {
+          await this.filesService.processResultUpload(payload);
+          console.log(`[RESULTS WORKER] Job ${job.id} completed`);
+        } catch (err) {
+          console.error(`[RESULTS WORKER] Job ${job.id} failed: ${err.message}`);
+          throw err;
+        }
+      },
+      {
+        connection: this.redis,
+        concurrency: 1, // process one result file at a time
+      },
+    );
   }
 }

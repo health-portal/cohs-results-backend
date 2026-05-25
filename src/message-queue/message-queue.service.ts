@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PgBoss } from 'pg-boss';
+import { Queue } from 'bullmq';
 import { TokenPayload } from 'src/auth/auth.dto';
 import { TokensService } from 'src/tokens/tokens.service';
 import {
@@ -13,13 +13,23 @@ import {
   SetPasswordSchema,
   setPasswordTemplate,
 } from './message-queue.dto';
+import type Redis from 'ioredis';
 
 @Injectable()
 export class MessageQueueService {
+  private readonly emailQueue:   Queue;
+  private readonly fileQueue:    Queue;
+  private readonly resultsQueue: Queue;
+
   constructor(
     private readonly tokensService: TokensService,
-    @Inject('PG_BOSS') private readonly boss: PgBoss,
-  ) {}
+    @Inject('REDIS') private readonly redis: Redis,
+  ) {
+    const connection = this.redis;
+    this.emailQueue   = new Queue(QueueTable.EMAILS,         { connection });
+    this.fileQueue    = new Queue(QueueTable.FILES,           { connection });
+    this.resultsQueue = new Queue(QueueTable.PROCESS_RESULTS, { connection });
+  }
 
   private async generateTokenUrl(
     isActivateAccount: boolean,
@@ -44,8 +54,8 @@ export class MessageQueueService {
       content: setPasswordTemplate(data.isActivateAccount, url),
     };
 
-    return await this.boss.send(QueueTable.EMAILS, payload, {
-      priority: data.isActivateAccount ? 1 : 2, // Reset password emails - high priority, Activate account emails - medium priority
+    return this.emailQueue.add('send-email', payload, {
+      priority: data.isActivateAccount ? 2 : 1,
     });
   }
 
@@ -56,15 +66,14 @@ export class MessageQueueService {
       content: notificationTemplate(data.title, data.message),
     };
 
-    // Notification email - low priority
-    return await this.boss.send(QueueTable.EMAILS, payload, { priority: 0 });
+    return this.emailQueue.add('send-email', payload, { priority: 0 });
   }
 
   async enqueueFile(payload: ParseFilePayload) {
-    return await this.boss.send(QueueTable.FILES, payload);
+    return this.fileQueue.add('parse-file', payload);
   }
-  
+
   async enqueueProcessResults(payload: ProcessResultsPayload): Promise<void> {
-  await this.boss.send(QueueTable.PROCESS_RESULTS, payload);
-}
+    await this.resultsQueue.add('process-results', payload);
+  }
 }

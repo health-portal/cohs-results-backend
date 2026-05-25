@@ -10,6 +10,7 @@ const env = cleanEnv(process.env, {
   FRONTEND_BASE_URL: url(),
   JWT_SECRET: str(),
   PORT: port(),
+  REDIS_URL: str(),
   SMTPEXPRESS_PROJECT_ID: str(),
   SMTPEXPRESS_PROJECT_SECRET: str(),
   SMTPEXPRESS_SENDER_EMAIL: str(),
