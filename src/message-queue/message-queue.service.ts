@@ -54,9 +54,13 @@ export class MessageQueueService {
       content: setPasswordTemplate(data.isActivateAccount, url),
     };
 
-    return this.emailQueue.add('send-email', payload, {
-      priority: data.isActivateAccount ? 2 : 1,
-    });
+  const job = await this.emailQueue.add('send-email', payload, {
+    priority: data.isActivateAccount ? 2 : 1,
+  });
+  
+  console.log(`[QUEUE] Email job enqueued — Job ID: ${job.id}, Queue: ${QueueTable.EMAILS}`);
+  return job;
+    
   }
 
   async enqueueNotificationEmail(data: NotificationSchema) {

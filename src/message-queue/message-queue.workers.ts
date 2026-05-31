@@ -58,10 +58,12 @@ export class MessageQueueWorkersModule
   // ============================================================
 
   private createEmailWorker(): Worker {
-    return new Worker(
-      QueueTable.EMAILS,
-      async (job) => {
-        const { content, toEmail, subject } = job.data as SendEmailPayload;
+    const worker = new Worker(
+    QueueTable.EMAILS,
+    async (job) => {
+      console.log(`[EMAIL WORKER] Picked up job ${job.id}`);
+      const { content, toEmail, subject } = job.data as SendEmailPayload;
+      try {
         await this.emailClient.sendApi.sendMail({
           subject,
           message: content,
@@ -71,12 +73,25 @@ export class MessageQueueWorkersModule
           },
           recipients: [toEmail],
         });
-      },
-      {
-        connection: this.redis,
-        concurrency: 3,
-      },
-    );
+        console.log(`[EMAIL WORKER] Sent to ${toEmail}`);
+      } catch (err) {
+        console.error(`[EMAIL WORKER] Failed: ${err.message}`);
+        throw err;
+      }
+    },
+    {
+      connection:  this.redis,
+      concurrency: 3,
+    },
+  );
+
+  // Add event listeners to see what's happening
+  worker.on('completed', (job) => console.log(`[EMAIL WORKER] Job ${job.id} completed`));
+  worker.on('failed', (job, err) => console.error(`[EMAIL WORKER] Job ${job?.id} failed: ${err.message}`));
+  worker.on('error', (err) => console.error(`[EMAIL WORKER] Worker error: ${err.message}`));
+  worker.on('ready', () => console.log(`[EMAIL WORKER] Worker ready and listening`));
+
+  return worker;
   }
 
   // ============================================================

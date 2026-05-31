@@ -17,6 +17,7 @@ import { ApprovalModule } from './approvals/approvals.module';
 import env from './environment';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { MessageQueueWorkersModule } from './message-queue/message-queue.workers';
+import { MessageQueueEmailsCronModule } from './message-queue/message-queue.emails-cron';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MessageQueueWorkersModule } from './message-queue/message-queue.workers
     ApprovalModule,
     CloudinaryModule,
     MessageQueueWorkersModule,
+    MessageQueueEmailsCronModule,
   ],
 })
 export class AppModule {}
