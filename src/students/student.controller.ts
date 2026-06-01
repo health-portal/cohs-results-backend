@@ -94,11 +94,11 @@ export class StudentController {
   @ApiBadRequestResponse({ description: '' })
   @Get('sessions')
   async getSessionsWithResults(
-    // @User() user: UserPayload
+    @User() user: UserPayload
   ) {
-    // const studentData = user.userData as StudentData;
-    const studentId = "e21cc5cd-03f5-4a41-9cda-16f5bb33675d";
-    return this.studentService.getStudentSessionsWithResults(studentId);
+    const studentData = user.userData as StudentData;
+    // const studentId = "e21cc5cd-03f5-4a41-9cda-16f5bb33675d";
+    return this.studentService.getStudentSessionsWithResults(studentData.studentId);
   }
 
 }
