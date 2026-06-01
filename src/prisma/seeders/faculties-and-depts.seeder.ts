@@ -110,19 +110,19 @@ export default async function seedFacultiesAndDepartments(
   await prisma.$transaction(async (tx) => {
     for (const [facultyName, departments] of Object.entries(
       collegeOfHealthSciences,
-    )) {
+    )) {const lowerFacultyName = facultyName.toLowerCase();
       console.log(`Processing Faculty: ${facultyName}`);
 
       await tx.faculty.upsert({
-        where: { name: facultyName },
+        where: { name: lowerFacultyName },
         update: {},
         create: {
-          name: facultyName,
+          name: lowerFacultyName,
           departments: {
             create: departments.map((dept) => ({
-              name: dept.name,
+              name: dept.name.toLowerCase(),
               maxLevel: dept.maxLevel,
-              shortName: dept.shortName,
+              shortName: dept.shortName.toLowerCase(),
             })),
           },
         },
@@ -132,7 +132,10 @@ export default async function seedFacultiesAndDepartments(
         `→ Upserted Faculty: ${facultyName} (${departments.length} departments)\n`,
       );
     }
-  });
+  }, {
+  maxWait: 5000, // Maximum time Prisma waits to acquire a connection (5s)
+  timeout: 30000 // Give the actual execution up to 30 seconds (30000ms)
+});
 
   console.log('=== Faculty & Department Seeding Completed ===\n');
 }

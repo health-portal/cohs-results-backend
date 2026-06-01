@@ -25,6 +25,7 @@ export enum EmailSubject {
   RESULT_UPLOAD = 'Your Result Was Uploaded',
   APPROVAL_REQUEST = 'Request for Approval',
   APPROVAL_SUCCESS = 'Approval Successful',
+  FILE_UPLOAD = 'Your file was uploaded'
 }
 
 export interface SendEmailPayload {

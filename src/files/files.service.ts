@@ -192,7 +192,7 @@ export class FilesService {
       });
       this.logger.log(`File processing completed for fileId: ${fileId}`);
       await this.messageQueueService.enqueueNotificationEmail({
-      subject: EmailSubject.RESULT_UPLOAD,
+      subject: EmailSubject.FILE_UPLOAD,
       email: file.user.email,
       title: "Uploaded file summary",
       message: `${summary.failed} out of ${summary.total} rows were riddled with errors. Please check the file again`
