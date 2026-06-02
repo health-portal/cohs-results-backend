@@ -174,6 +174,11 @@ async getLecturerCourseSessions(lecturerId: string) {
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
     });
+    
+    return {
+      message: "File uploaded successfully. An email would be sent for summary",
+      data: null
+    }
   }
 
   async uploadFileForStudentResults(

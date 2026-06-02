@@ -49,6 +49,11 @@ export class CoursesService {
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
     });
+    
+    return {
+      message: "File uploaded successfully. An email would be sent for summary",
+      data: null
+    }
   }
 
   async getCourses(): Promise<CourseRes[]> {
@@ -117,6 +122,11 @@ export class CoursesService {
       where: { id: courseId },
       data: { title, description },
     });
+    
+    return {
+      message: "course updated successfully",
+      data: null
+    }
   }
 
   async deleteCourse(courseId: string) {

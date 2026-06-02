@@ -54,6 +54,7 @@ export class LecturersService {
         sub: createdUser.id,
       },
     });
+    return "Lecturer created successfully"
   }
 
   async uploadFileForLecturers(userId: string, file: Express.Multer.File) {
@@ -71,6 +72,11 @@ export class LecturersService {
     await this.messageQueueService.enqueueFile({
       fileId: createdFile.id,
     });
+
+    return {
+      message: "File uploaded successfully. An email would be sent for summary",
+      data: null
+    }
   }
 
   async getLecturers(query: GetLecturersQuery): Promise<LecturerProfileRes[]> {
